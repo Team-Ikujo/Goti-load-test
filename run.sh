@@ -33,6 +33,7 @@ _CLI_DURATION="${DURATION-}"
 _CLI_PUSH_METRICS="${PUSH_METRICS-}"
 _CLI_MIMIR_PUSH_URL="${MIMIR_PUSH_URL-}"
 _CLI_START_TIME="${START_TIME-}"
+_CLI_TEST_NAME="${TEST_NAME-}"
 
 # config 파일 로드 (없으면 my-config.env.example → my-config.env 복사 안내)
 if [ -f "$CONFIG_FILE" ]; then
@@ -51,6 +52,7 @@ fi
 [ -n "$_CLI_PUSH_METRICS" ]   && PUSH_METRICS="$_CLI_PUSH_METRICS"
 [ -n "$_CLI_MIMIR_PUSH_URL" ] && MIMIR_PUSH_URL="$_CLI_MIMIR_PUSH_URL"
 [ -n "$_CLI_START_TIME" ]     && START_TIME="$_CLI_START_TIME"
+[ -n "$_CLI_TEST_NAME" ]     && TEST_NAME="$_CLI_TEST_NAME"
 
 # 기본값 (어디에도 설정 안 된 항목만)
 RUNNER_ID="${RUNNER_ID:-0}"
