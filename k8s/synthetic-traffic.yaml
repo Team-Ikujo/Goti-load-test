@@ -1,0 +1,293 @@
+# K6 상시 합성 트래픽 — Kind 클러스터 내부 CronJob
+# 5분마다 실행, 4분간 3VU로 프론트엔드 사용 패턴 기반 API 호출
+# MSA 서비스 직접 호출 (mTLS sidecar + JWT + AuthorizationPolicy)
+#
+# 배포:
+#   kubectl apply -f load-tests/k8s/synthetic-traffic.yaml
+#
+# 수동 실행 (테스트):
+#   kubectl create job synthetic-traffic-manual \
+#     --from=cronjob/synthetic-traffic -n goti
+#
+# 중지:
+#   kubectl delete -f load-tests/k8s/synthetic-traffic.yaml
+#
+# 로그 확인:
+#   kubectl logs -n goti -l app=synthetic-traffic -c k6 --tail=50
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k6-synthetic
+  namespace: goti
+  labels:
+    app: synthetic-traffic
+    app.kubernetes.io/part-of: goti
+---
+# K6 pod → 모든 goti 서비스 접근 허용 (mTLS principal 기반)
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-k6-synthetic
+  namespace: goti
+  labels:
+    app: synthetic-traffic
+    app.kubernetes.io/part-of: goti
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/goti/sa/k6-synthetic"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-synthetic-scripts
+  namespace: goti
+  labels:
+    app: synthetic-traffic
+    app.kubernetes.io/part-of: goti
+data:
+  # 로컬 실행: k6 run load-tests/scenarios/synthetic-traffic.js -e BASE_URL=https://your-domain
+  synthetic-traffic.js: |
+    import http from 'k6/http';
+    import { check, sleep } from 'k6';
+    import { Rate, Trend, Counter } from 'k6/metrics';
+
+    // 메트릭
+    var apiSuccessRate = new Rate('synthetic_api_success_rate');
+    var apiDuration = new Trend('synthetic_api_duration', true);
+    var apiCalls = new Counter('synthetic_api_calls');
+
+    export var options = {
+      scenarios: {
+        synthetic: {
+          executor: 'constant-vus',
+          vus: 3,
+          duration: '4m',
+        },
+      },
+      thresholds: {
+        synthetic_api_success_rate: ['rate>0.95'],
+        synthetic_api_duration: ['p(95)<2000'],
+      },
+      noConnectionReuse: false,
+    };
+
+    // 환경 설정 — MSA 서비스별 URL
+    var IS_K8S = (__ENV.ENV === 'k8s-internal');
+    var EXTERNAL_URL = __ENV.BASE_URL || 'https://your-domain';
+
+    var SVC = {
+      ticketing: IS_K8S ? 'http://goti-ticketing-dev.goti.svc:8080' : EXTERNAL_URL,
+      user:      IS_K8S ? 'http://goti-user-dev.goti.svc:8080'      : EXTERNAL_URL,
+      stadium:   IS_K8S ? 'http://goti-stadium-dev.goti.svc:8080'   : EXTERNAL_URL,
+      payment:   IS_K8S ? 'http://goti-payment-dev.goti.svc:8080'   : EXTERNAL_URL,
+    };
+
+    // HTTP 헬퍼
+    function apiGet(baseUrl, path, authToken) {
+      var url = baseUrl + path;
+      var headers = { 'Content-Type': 'application/json' };
+      if (authToken) { headers['Authorization'] = 'Bearer ' + authToken; }
+      var res = http.get(url, { headers: headers });
+      apiCalls.add(1);
+      apiDuration.add(res.timings.duration);
+      apiSuccessRate.add(res.status >= 200 && res.status < 400);
+      if (res.status >= 400) {
+        console.warn('GET ' + path + ' -> ' + res.status);
+      }
+      return res;
+    }
+
+    function apiPost(baseUrl, path, body, authToken) {
+      var url = baseUrl + path;
+      var headers = { 'Content-Type': 'application/json' };
+      if (authToken) { headers['Authorization'] = 'Bearer ' + authToken; }
+      var payload = typeof body === 'string' ? body : JSON.stringify(body);
+      var res = http.post(url, payload, { headers: headers });
+      apiCalls.add(1);
+      apiDuration.add(res.timings.duration);
+      apiSuccessRate.add(res.status >= 200 && res.status < 400);
+      if (res.status >= 400) {
+        console.warn('POST ' + path + ' -> ' + res.status);
+      }
+      return res;
+    }
+
+    function extractData(res) {
+      if (res.status !== 200) return null;
+      try {
+        var body = JSON.parse(res.body);
+        return body.data || body;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Setup: 시드 데이터 수집 + JWT 발급
+    export function setup() {
+      var signupRes = apiPost(SVC.user, '/api/v1/test/users', {
+        name: 'K6-Synthetic',
+        mobile: '00099990001',
+        gender: 'MALE',
+        birthDate: '1990-01-01',
+      });
+      var signupData = extractData(signupRes);
+      if (!signupData || !signupData.accessToken) {
+        console.error('setup: 유저 생성 실패 (status=' + (signupRes ? signupRes.status : 'null') + ')');
+        return null;
+      }
+
+      var token = signupData.accessToken;
+
+      // JWT 포함하여 데이터 수집 (require-jwt DENY 우회)
+      var gamesRes = apiGet(SVC.ticketing, '/api/v1/games/schedules?today=false', token);
+      var games = extractData(gamesRes);
+      if (!Array.isArray(games) || games.length === 0) {
+        console.error('setup: 경기 일정 없음');
+        return null;
+      }
+
+      var game = null;
+      for (var i = 0; i < games.length; i++) {
+        if (games[i].ticketingStatus === 'AVAILABLE') { game = games[i]; break; }
+      }
+      if (!game) game = games[0];
+
+      var gameId = String(game.gameId);
+      var stadiumId = String(game.stadiumId);
+      var homeTeamId = String(game.homeTeamId);
+
+      var sectionsRes = apiGet(SVC.ticketing, '/api/v1/stadium-seats/stadiums/' + stadiumId + '/seat-sections', token);
+      var sections = extractData(sectionsRes);
+      var sectionIds = [];
+      if (Array.isArray(sections)) {
+        for (var j = 0; j < sections.length; j++) {
+          sectionIds.push(String(sections[j].sectionId));
+        }
+      }
+
+      var teamSet = {};
+      var teamIds = [];
+      var limit = Math.min(games.length, 10);
+      for (var k = 0; k < limit; k++) {
+        var g = games[k];
+        if (g.homeTeamId && !teamSet[g.homeTeamId]) { teamSet[g.homeTeamId] = true; teamIds.push(String(g.homeTeamId)); }
+        if (g.awayTeamId && !teamSet[g.awayTeamId]) { teamSet[g.awayTeamId] = true; teamIds.push(String(g.awayTeamId)); }
+        if (teamIds.length >= 5) break;
+      }
+
+      console.log('setup: gameId=' + gameId + ', stadiumId=' + stadiumId + ', sections=' + sectionIds.length + ', teams=' + teamIds.length);
+      return { token: token, gameId: gameId, stadiumId: stadiumId, homeTeamId: homeTeamId, sectionIds: sectionIds, teamIds: teamIds };
+    }
+
+    // 메인 루프: 가중치 기반 랜덤 API 호출
+    // 모든 호출에 JWT 포함 (require-jwt DENY 우회)
+    export default function (testData) {
+      if (!testData) { sleep(60); return; }
+
+      var t = testData.token;
+      var roll = Math.random() * 100;
+
+      if (roll < 25) {
+        // 홈: 경기 일정 (25%) → ticketing
+        apiGet(SVC.ticketing, '/api/v1/games/schedules?today=false', t);
+      } else if (roll < 35) {
+        // 홈: 팀 상세 (10%) → stadium
+        if (testData.teamIds.length > 0) {
+          var tid = testData.teamIds[Math.floor(Math.random() * testData.teamIds.length)];
+          apiGet(SVC.stadium, '/api/v1/baseball-teams/' + tid, t);
+        }
+      } else if (roll < 50) {
+        // 구역 선택: 좌석 등급 (15%) → ticketing
+        apiGet(SVC.ticketing, '/api/v1/stadium-seats/stadiums/' + testData.stadiumId + '/games/' + testData.gameId + '/seat-grades', t);
+      } else if (roll < 60) {
+        // 구역 선택: 구역 목록 (10%) → ticketing
+        apiGet(SVC.ticketing, '/api/v1/stadium-seats/stadiums/' + testData.stadiumId + '/seat-sections', t);
+      } else if (roll < 65) {
+        // 구역 선택: 가격 정책 (5%) → ticketing
+        apiGet(SVC.ticketing, '/api/v1/teams/' + testData.homeTeamId + '/ticket-pricing-policies', t);
+      } else if (roll < 75) {
+        // 좌석맵: 좌석 목록 (10%) → ticketing
+        if (testData.sectionIds.length > 0) {
+          var sid1 = testData.sectionIds[Math.floor(Math.random() * testData.sectionIds.length)];
+          apiGet(SVC.ticketing, '/api/v1/seats/seat-sections/' + sid1 + '/seats', t);
+        }
+      } else if (roll < 90) {
+        // 좌석 상태: 실시간 (15%) → ticketing
+        if (testData.sectionIds.length > 0) {
+          var sid2 = testData.sectionIds[Math.floor(Math.random() * testData.sectionIds.length)];
+          apiGet(SVC.ticketing, '/api/v1/game-seats/' + testData.gameId + '/sections/' + sid2 + '/seat-statuses', t);
+        }
+      } else if (roll < 95) {
+        // 마이페이지: 주문 목록 (5%) → ticketing
+        apiGet(SVC.ticketing, '/api/v1/orders', t);
+      } else {
+        // 오늘 경기 (5%) → ticketing
+        apiGet(SVC.ticketing, '/api/v1/games/schedules?today=true', t);
+      }
+
+      // 사용자 브라우징 패턴: 2~5초 대기
+      sleep(Math.random() * 3 + 2);
+    }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: synthetic-traffic
+  namespace: goti
+  labels:
+    app: synthetic-traffic
+    app.kubernetes.io/part-of: goti
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app: synthetic-traffic
+    spec:
+      activeDeadlineSeconds: 300
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: synthetic-traffic
+          annotations:
+            sidecar.istio.io/inject: "true"
+            proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":true,"proxyMetadata":{"EXIT_ON_ZERO_ACTIVE_CONNECTIONS":"true"}}'
+        spec:
+          serviceAccountName: k6-synthetic
+          containers:
+            - name: k6
+              image: grafana/k6:0.56.0
+              command:
+                - k6
+                - run
+                - --no-color
+                - --log-output=stdout
+                - /scripts/synthetic-traffic.js
+              env:
+                - name: ENV
+                  value: "k8s-internal"
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: scripts
+              configMap:
+                name: k6-synthetic-scripts
+          restartPolicy: Never

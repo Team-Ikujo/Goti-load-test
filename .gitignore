@@ -1,0 +1,6 @@
+results/
+my-config.env
+node_modules/
+.DS_Store
+*.log
+.claude/
