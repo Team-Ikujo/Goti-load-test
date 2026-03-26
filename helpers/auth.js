@@ -6,18 +6,17 @@ const tokenCache = {};
  * 테스트 유저 간편 회원가입 + JWT 발급.
  * RUNNER_ID(0~3) × VU ID 조합으로 4명 동시 실행 시 mobile 충돌 방지.
  *
- * mobile 형식: {runnerId:3자리}{uniqueId:8자리} = 11자리
- *   Runner 0: 000XXXXXXXX
- *   Runner 1: 001XXXXXXXX
- *   Runner 2: 002XXXXXXXX
- *   Runner 3: 003XXXXXXXX
+ * mobile 형식: 000{runnerId:1자리}{uniqueId:7자리} = 11자리 (서버가 000 prefix 강제)
+ *   Runner 0: 0000XXXXXXX
+ *   Runner 1: 0001XXXXXXX
+ *   Runner 2: 0002XXXXXXX
+ *   Runner 3: 0003XXXXXXX
  *
  * @returns {{ token: string, userId: string } | null}
  */
 export function signup(baseUrl, uniqueId, runnerId = 0) {
-  const prefix = String(runnerId).padStart(3, '0');
-  const suffix = String(uniqueId).padStart(8, '0');
-  const mobile = `${prefix}${suffix}`;
+  const suffix = String(runnerId * 10000000 + uniqueId).padStart(8, '0');
+  const mobile = `000${suffix}`;
 
   if (tokenCache[mobile]) {
     return tokenCache[mobile];

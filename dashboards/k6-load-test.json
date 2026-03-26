@@ -49,7 +49,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "k6_http_req_duration_p95{quantile=\"0.95\"}",
+          "expr": "k6_http_req_duration_p95{quantile=\"0.95\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p95"
         }
       ]
@@ -77,7 +77,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "rate(k6_http_reqs_total{expected_response=\"false\"}[1m]) / rate(k6_http_reqs_total[1m])",
+          "expr": "rate(k6_http_reqs_total{expected_response=\"false\", test_name=~\"$test_name\", runner=~\"$runner\"}[1m]) / rate(k6_http_reqs_total{test_name=~\"$test_name\", runner=~\"$runner\"}[1m])",
           "legendFormat": "failure rate"
         }
       ]
@@ -96,7 +96,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "k6_vus",
+          "expr": "k6_vus{test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "VUs"
         }
       ]
@@ -115,7 +115,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "rate(k6_http_reqs_total[1m])",
+          "expr": "sum(rate(k6_http_reqs_total{test_name=~\"$test_name\", runner=~\"$runner\"}[1m]))",
           "legendFormat": "req/s"
         }
       ]
@@ -138,19 +138,19 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "k6_http_req_duration_p95{quantile=\"0.5\"}",
+          "expr": "k6_http_req_duration_p95{quantile=\"0.5\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p50"
         },
         {
-          "expr": "k6_http_req_duration_p95{quantile=\"0.9\"}",
+          "expr": "k6_http_req_duration_p95{quantile=\"0.9\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p90"
         },
         {
-          "expr": "k6_http_req_duration_p95{quantile=\"0.95\"}",
+          "expr": "k6_http_req_duration_p95{quantile=\"0.95\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p95"
         },
         {
-          "expr": "k6_http_req_duration_p95{quantile=\"0.99\"}",
+          "expr": "k6_http_req_duration_p95{quantile=\"0.99\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p99"
         }
       ]
@@ -166,11 +166,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(k6_http_reqs_total{expected_response=\"true\"}[1m]))",
+          "expr": "sum(rate(k6_http_reqs_total{expected_response=\"true\", test_name=~\"$test_name\", runner=~\"$runner\"}[1m]))",
           "legendFormat": "success"
         },
         {
-          "expr": "sum(rate(k6_http_reqs_total{expected_response=\"false\"}[1m]))",
+          "expr": "sum(rate(k6_http_reqs_total{expected_response=\"false\", test_name=~\"$test_name\", runner=~\"$runner\"}[1m]))",
           "legendFormat": "failure"
         }
       ]
@@ -186,12 +186,12 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "k6_vus",
-          "legendFormat": "active VUs"
+          "expr": "k6_vus{test_name=~\"$test_name\", runner=~\"$runner\"}",
+          "legendFormat": "{{runner}} active VUs"
         },
         {
-          "expr": "k6_vus_max",
-          "legendFormat": "max VUs"
+          "expr": "k6_vus_max{test_name=~\"$test_name\", runner=~\"$runner\"}",
+          "legendFormat": "{{runner}} max VUs"
         }
       ]
     },
@@ -213,15 +213,15 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "k6_goti_seat_selection_duration_p95{quantile=\"0.5\"}",
+          "expr": "k6_goti_seat_selection_duration_p95{quantile=\"0.5\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p50"
         },
         {
-          "expr": "k6_goti_seat_selection_duration_p95{quantile=\"0.95\"}",
+          "expr": "k6_goti_seat_selection_duration_p95{quantile=\"0.95\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p95"
         },
         {
-          "expr": "k6_goti_seat_selection_duration_p95{quantile=\"0.99\"}",
+          "expr": "k6_goti_seat_selection_duration_p95{quantile=\"0.99\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p99"
         }
       ]
@@ -237,15 +237,15 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "k6_goti_order_duration_p95{quantile=\"0.5\"}",
+          "expr": "k6_goti_order_duration_p95{quantile=\"0.5\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p50"
         },
         {
-          "expr": "k6_goti_order_duration_p95{quantile=\"0.95\"}",
+          "expr": "k6_goti_order_duration_p95{quantile=\"0.95\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p95"
         },
         {
-          "expr": "k6_goti_order_duration_p95{quantile=\"0.99\"}",
+          "expr": "k6_goti_order_duration_p95{quantile=\"0.99\", test_name=~\"$test_name\", runner=~\"$runner\"}",
           "legendFormat": "p99"
         }
       ]
@@ -270,8 +270,8 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "k6_goti_ticket_success_rate",
-          "legendFormat": "success rate"
+          "expr": "k6_goti_ticket_success_rate{test_name=~\"$test_name\", runner=~\"$runner\"}",
+          "legendFormat": "{{runner}} success rate"
         }
       ]
     },
@@ -286,23 +286,68 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "k6_goti_seat_conflicts",
-          "legendFormat": "conflicts"
+          "expr": "k6_goti_seat_conflicts{test_name=~\"$test_name\", runner=~\"$runner\"}",
+          "legendFormat": "{{runner}} conflicts"
         },
         {
-          "expr": "rate(k6_goti_seat_conflicts[1m])",
-          "legendFormat": "conflicts/sec"
+          "expr": "rate(k6_goti_seat_conflicts{test_name=~\"$test_name\", runner=~\"$runner\"}[1m])",
+          "legendFormat": "{{runner}} conflicts/sec"
         }
       ]
     }
   ],
   "schemaVersion": 39,
   "tags": ["k6", "load-test", "goti"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+        "definition": "label_values(k6_http_reqs_total, test_name)",
+        "includeAll": true,
+        "multi": true,
+        "name": "test_name",
+        "label": "Test Name",
+        "query": "label_values(k6_http_reqs_total, test_name)",
+        "refresh": 2,
+        "regex": "",
+        "sort": 2,
+        "type": "query"
+      },
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+        "definition": "label_values(k6_http_reqs_total, runner)",
+        "includeAll": true,
+        "multi": true,
+        "name": "runner",
+        "label": "Runner",
+        "query": "label_values(k6_http_reqs_total, runner)",
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+        "definition": "label_values(k6_http_reqs_total, scenario)",
+        "includeAll": true,
+        "multi": true,
+        "name": "scenario",
+        "label": "Scenario",
+        "query": "label_values(k6_http_reqs_total, scenario)",
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Goti - K6 Load Test",
   "uid": "goti-k6-load-test",
-  "version": 1
+  "version": 2
 }
