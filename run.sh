@@ -34,6 +34,7 @@ _CLI_PUSH_METRICS="${PUSH_METRICS-}"
 _CLI_MIMIR_PUSH_URL="${MIMIR_PUSH_URL-}"
 _CLI_START_TIME="${START_TIME-}"
 _CLI_TEST_NAME="${TEST_NAME-}"
+_CLI_QUEUE_URL="${QUEUE_URL-}"
 
 # config 파일 로드 (없으면 my-config.env.example → my-config.env 복사 안내)
 if [ -f "$CONFIG_FILE" ]; then
@@ -53,6 +54,7 @@ fi
 [ -n "$_CLI_MIMIR_PUSH_URL" ] && MIMIR_PUSH_URL="$_CLI_MIMIR_PUSH_URL"
 [ -n "$_CLI_START_TIME" ]     && START_TIME="$_CLI_START_TIME"
 [ -n "$_CLI_TEST_NAME" ]     && TEST_NAME="$_CLI_TEST_NAME"
+[ -n "$_CLI_QUEUE_URL" ]     && QUEUE_URL="$_CLI_QUEUE_URL"
 
 # 기본값 (어디에도 설정 안 된 항목만)
 RUNNER_ID="${RUNNER_ID:-0}"
@@ -65,6 +67,7 @@ DURATION="${DURATION:-1h}"
 PUSH_METRICS="${PUSH_METRICS:-false}"
 MIMIR_PUSH_URL="${MIMIR_PUSH_URL:-}"
 START_TIME="${START_TIME:-}"
+QUEUE_URL="${QUEUE_URL:-}"
 
 # ---------------------------------------------------------------------------
 # 실행 (아래는 수정 불필요)
@@ -85,20 +88,22 @@ fi
 
 # 시나리오 매핑
 case "$SCENARIO" in
-  e2e)     FILE="scenarios/e2e-ticketing.js" ;;
-  spike)   FILE="scenarios/spike-ticketing.js" ;;
-  normal)  FILE="scenarios/normal-load.js" ;;
-  soak)    FILE="scenarios/soak-stability.js" ;;
-  smoke)   FILE="scenarios/smoke.js" ;;
+  e2e)             FILE="scenarios/e2e-ticketing.js" ;;
+  spike)           FILE="scenarios/spike-ticketing.js" ;;
+  normal)          FILE="scenarios/normal-load.js" ;;
+  soak)            FILE="scenarios/soak-stability.js" ;;
+  smoke)           FILE="scenarios/smoke.js" ;;
+  queue-junsang)   FILE="scenarios/queue-junsang.js" ;;
   *)
-    echo "사용법: $0 {smoke|e2e|spike|normal|soak|port-forward}"
+    echo "사용법: $0 {smoke|e2e|spike|normal|soak|queue-junsang|port-forward}"
     echo ""
-    echo "  smoke        — API 정상 응답 확인 (1 VU, 1회)"
-    echo "  e2e          — 혼합 시나리오 부하 (조회+예매+취소+경합)"
-    echo "  spike        — 티켓 오픈 급증 시뮬레이션"
-    echo "  normal       — 평시 트래픽 시뮬레이션"
-    echo "  soak         — 장시간 안정성 검증"
-    echo "  port-forward — Mimir port-forward (메트릭 Push용)"
+    echo "  smoke          — API 정상 응답 확인 (1 VU, 1회)"
+    echo "  e2e            — 혼합 시나리오 부하 (조회+예매+취소+경합)"
+    echo "  spike          — 티켓 오픈 급증 시뮬레이션"
+    echo "  normal         — 평시 트래픽 시뮬레이션"
+    echo "  soak           — 장시간 안정성 검증"
+    echo "  queue-junsang  — 대기열 방식1 (Redis ZSET+Scheduler)"
+    echo "  port-forward   — Mimir port-forward (메트릭 Push용)"
     exit 1
     ;;
 esac
@@ -124,6 +129,7 @@ echo "  경기 ID:     ${GAME_ID:-자동 선택}"
 echo "  VUS:         $VUS"
 echo "  URL:         $BASE_URL"
 echo "  Mimir Push:  $PUSH_METRICS"
+[ -n "$QUEUE_URL" ]         && echo "  Queue URL:   $QUEUE_URL"
 [ "$SCENARIO" = "spike" ]  && echo "  MAX_RATE:    $MAX_RATE rps"
 [ "$SCENARIO" = "soak" ]   && echo "  DURATION:    $DURATION"
 [ -n "$START_TIME" ]        && echo "  시작 시각:   $START_TIME"
@@ -171,6 +177,7 @@ K6_ARGS=(
   -e VUS="$VUS"
   -e MAX_RATE="$MAX_RATE"
   -e DURATION="$DURATION"
+  -e QUEUE_URL="$QUEUE_URL"
   --tag runner="$RUNNER_NAME"
   --tag test_name="$TEST_NAME"
   --tag scenario="$SCENARIO"
