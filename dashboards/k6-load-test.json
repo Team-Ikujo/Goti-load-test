@@ -294,6 +294,257 @@
           "legendFormat": "{{runner}} conflicts/sec"
         }
       ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 },
+      "id": 30,
+      "title": "Seat Inventory (goti-metrics-collector)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }] } }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 40 },
+      "id": 31,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Total Capacity",
+      "type": "stat",
+      "targets": [{ "expr": "sum(goti_seats_total{match_id=~\"$match_id\"})", "legendFormat": "capacity" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "blue", "value": null }] } }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 40 },
+      "id": 32,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Remaining",
+      "type": "stat",
+      "targets": [{ "expr": "sum(goti_seats_remaining_total{match_id=~\"$match_id\"})", "legendFormat": "remaining" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "orange", "value": null }] } }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 40 },
+      "id": 33,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Locked (Payment)",
+      "type": "stat",
+      "targets": [{ "expr": "sum(goti_seats_locked_total{match_id=~\"$match_id\"})", "legendFormat": "locked" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "red", "value": null }] } }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 40 },
+      "id": 34,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Sold",
+      "type": "stat",
+      "targets": [{ "expr": "sum(goti_seats_sold_total{match_id=~\"$match_id\"})", "legendFormat": "sold" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "red", "value": 0.8 }] } }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 40 },
+      "id": 60,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Fill Ratio",
+      "type": "stat",
+      "targets": [{ "expr": "avg(goti_seats_fill_ratio{match_id=~\"$match_id\"})", "legendFormat": "fill" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 2 }] } }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 40 },
+      "id": 61,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Active Matches",
+      "type": "stat",
+      "targets": [{ "expr": "goti_match_active_total", "legendFormat": "active" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "id": 35,
+      "title": "Seat Status Over Time",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum(goti_seats_remaining_total{match_id=~\"$match_id\"})", "legendFormat": "Remaining" },
+        { "expr": "sum(goti_seats_locked_total{match_id=~\"$match_id\"})", "legendFormat": "Locked" },
+        { "expr": "sum(goti_seats_sold_total{match_id=~\"$match_id\"})", "legendFormat": "Sold" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "id": 36,
+      "title": "Remaining Seats by Section",
+      "type": "bargauge",
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "goti_seats_remaining_by_section{match_id=~\"$match_id\"}", "legendFormat": "{{section}}" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 52 },
+      "id": 37,
+      "title": "Sell Rate (seats/min)",
+      "type": "timeseries",
+      "targets": [{ "expr": "goti_seats_sell_rate_per_min{match_id=~\"$match_id\"}", "legendFormat": "{{match_id}}" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "m", "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 5 }, { "color": "green", "value": 30 }] } } },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 52 },
+      "id": 62,
+      "title": "Est. Soldout (minutes)",
+      "type": "timeseries",
+      "targets": [{ "expr": "goti_seats_estimated_soldout_minutes{match_id=~\"$match_id\"}", "legendFormat": "{{match_id}}" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.3 }, { "color": "red", "value": 0.5 }] } } },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 52 },
+      "id": 38,
+      "title": "Lock Churn Ratio",
+      "type": "timeseries",
+      "targets": [{ "expr": "goti_seats_lock_churn_ratio{match_id=~\"$match_id\"}", "legendFormat": "{{match_id}}" }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+      "id": 70,
+      "title": "Payment",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 61 },
+      "id": 71,
+      "title": "Payment Status Over Time",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "sum(goti_payment_in_progress_total{match_id=~\"$match_id\"})", "legendFormat": "In Progress" },
+        { "expr": "sum(goti_payment_completed_total{match_id=~\"$match_id\"})", "legendFormat": "Completed" },
+        { "expr": "sum(goti_payment_timeout_total{match_id=~\"$match_id\"})", "legendFormat": "Timeout" },
+        { "expr": "sum(goti_payment_failed_total{match_id=~\"$match_id\"})", "legendFormat": "Failed" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 61 },
+      "id": 72,
+      "title": "Payment Conversion Ratio",
+      "type": "timeseries",
+      "targets": [{ "expr": "goti_payment_conversion_ratio{match_id=~\"$match_id\"}", "legendFormat": "{{match_id}}" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 2 }] } } },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 61 },
+      "id": 73,
+      "title": "Payment Pressure",
+      "type": "timeseries",
+      "targets": [{ "expr": "goti_payment_pressure{match_id=~\"$match_id\"}", "legendFormat": "{{match_id}}" }]
+    },
+    {
+      "collapsed": true,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 69 },
+      "id": 40,
+      "title": "Queue & Guardrail",
+      "type": "row",
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 500 }] } } },
+          "gridPos": { "h": 6, "w": 4, "x": 0, "y": 70 },
+          "id": 41,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Queue Length",
+          "type": "stat",
+          "targets": [{ "expr": "sum(goti_queue_length_total{match_id=~\"$match_id\"})", "legendFormat": "waiting" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+          "fieldConfig": { "defaults": { "unit": "reqps" } },
+          "gridPos": { "h": 6, "w": 8, "x": 4, "y": 70 },
+          "id": 42,
+          "title": "Queue Admission Rate",
+          "type": "timeseries",
+          "targets": [{ "expr": "goti_queue_admission_rate_per_sec{match_id=~\"$match_id\"}", "legendFormat": "{{match_id}} admit/s" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+          "fieldConfig": { "defaults": { "unit": "s" } },
+          "gridPos": { "h": 6, "w": 4, "x": 12, "y": 70 },
+          "id": 80,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Est. Wait Time",
+          "type": "stat",
+          "targets": [{ "expr": "max(goti_queue_estimated_wait_seconds{match_id=~\"$match_id\"})", "legendFormat": "wait" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 2 }] } } },
+          "gridPos": { "h": 6, "w": 4, "x": 16, "y": 70 },
+          "id": 81,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Queue/Seat Ratio",
+          "type": "stat",
+          "targets": [{ "expr": "max(goti_queue_to_seat_ratio{match_id=~\"$match_id\"})", "legendFormat": "ratio" }]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+          "fieldConfig": { "defaults": { "unit": "short" } },
+          "gridPos": { "h": 6, "w": 4, "x": 20, "y": 70 },
+          "id": 43,
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "title": "Bot Blocked",
+          "type": "stat",
+          "targets": [{ "expr": "sum(goti_guardrail_bot_blocked_total{match_id=~\"$match_id\"})", "legendFormat": "blocked" }]
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 70 },
+      "id": 50,
+      "title": "Collector Health",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 71 },
+      "id": 51,
+      "title": "Collector Poll Duration (p95)",
+      "type": "timeseries",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, source) (rate(goti_collector_poll_duration_seconds_bucket[5m])))", "legendFormat": "{{source}}" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 71 },
+      "id": 52,
+      "title": "Collector Poll Errors",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum by (source) (rate(goti_collector_poll_errors_total[5m]))", "legendFormat": "{{source}}" }]
     }
   ],
   "schemaVersion": 39,
@@ -337,6 +588,20 @@
         "name": "scenario",
         "label": "Scenario",
         "query": "label_values(k6_http_reqs_total, scenario)",
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "${DS_MIMIR}" },
+        "definition": "label_values(goti_seats_total, match_id)",
+        "includeAll": true,
+        "multi": true,
+        "name": "match_id",
+        "label": "Match ID",
+        "query": "label_values(goti_seats_total, match_id)",
         "refresh": 2,
         "regex": "",
         "sort": 1,
