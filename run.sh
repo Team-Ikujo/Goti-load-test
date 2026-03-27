@@ -93,17 +93,23 @@ case "$SCENARIO" in
   normal)          FILE="scenarios/normal-load.js" ;;
   soak)            FILE="scenarios/soak-stability.js" ;;
   smoke)           FILE="scenarios/smoke.js" ;;
-  queue-junsang)   FILE="scenarios/queue-junsang.js" ;;
+  queue-junsang)            FILE="scenarios/queue-junsang.js" ;;
+  queue-junsang-spike)      FILE="scenarios/queue-junsang-spike.js" ;;
+  queue-junsang-saturation) FILE="scenarios/queue-junsang-saturation.js" ;;
+  queue-junsang-heartbeat)  FILE="scenarios/queue-junsang-heartbeat.js" ;;
   *)
-    echo "사용법: $0 {smoke|e2e|spike|normal|soak|queue-junsang|port-forward}"
+    echo "사용법: $0 {smoke|e2e|spike|normal|soak|queue-junsang*|port-forward}"
     echo ""
-    echo "  smoke          — API 정상 응답 확인 (1 VU, 1회)"
-    echo "  e2e            — 혼합 시나리오 부하 (조회+예매+취소+경합)"
-    echo "  spike          — 티켓 오픈 급증 시뮬레이션"
-    echo "  normal         — 평시 트래픽 시뮬레이션"
-    echo "  soak           — 장시간 안정성 검증"
-    echo "  queue-junsang  — 대기열 방식1 (Redis ZSET+Scheduler)"
-    echo "  port-forward   — Mimir port-forward (메트릭 Push용)"
+    echo "  smoke                    — API 정상 응답 확인 (1 VU, 1회)"
+    echo "  e2e                      — 혼합 시나리오 부하 (조회+예매+취소+경합)"
+    echo "  spike                    — 티켓 오픈 급증 시뮬레이션"
+    echo "  normal                   — 평시 트래픽 시뮬레이션"
+    echo "  soak                     — 장시간 안정성 검증"
+    echo "  queue-junsang            — 대기열→예매 E2E (방식1)"
+    echo "  queue-junsang-spike      — 대기열만 스파이크 (예매 X)"
+    echo "  queue-junsang-saturation — 대기열 포화 (100명 초과)"
+    echo "  queue-junsang-heartbeat  — Heartbeat 스트레스 (Redis 부하)"
+    echo "  port-forward             — Mimir port-forward (메트릭 Push용)"
     exit 1
     ;;
 esac
