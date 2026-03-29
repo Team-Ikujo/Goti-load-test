@@ -82,7 +82,7 @@ export default function (data) {
 
   const e2eStart = Date.now();
 
-  const queueResult = waitForQueuePass(queueUrl, data.gameId, auth, 300, 2);
+  const queueResult = waitForQueuePass(queueUrl, data.gameId, auth, 300, 1);
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
   // 빠른 예매 (1석, 슬롯 빠른 반환)
