@@ -100,6 +100,7 @@ case "$SCENARIO" in
   queue-junsang-spike)      FILE="scenarios/queue-junsang-spike.js" ;;
   queue-junsang-saturation) FILE="scenarios/queue-junsang-saturation.js" ;;
   queue-junsang-heartbeat)  FILE="scenarios/queue-junsang-heartbeat.js" ;;
+  queue-junsang-oneshot)   FILE="scenarios/queue-junsang-oneshot.js" ;;
   *)
     echo "사용법: $0 {smoke|e2e|spike|normal|soak|queue-junsang*|port-forward}"
     echo ""
