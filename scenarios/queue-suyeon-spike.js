@@ -52,7 +52,8 @@ export const options = {
 export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
-  console.log(`=== 대기열 스파이크: 방식 3 (suyeon) — ${vus} VU ===`);
+  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
+  console.log(`=== 대기열 스파이크: 방식 3 (suyeon) — ${vus} VU, Impl: ${queueImpl} ===`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
   return { ...testData, queueUrl };

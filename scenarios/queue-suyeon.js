@@ -31,18 +31,25 @@ function randomSeatCount() { return Math.floor(Math.random() * 4) + 1; }
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 const vus = parseInt(__ENV.VUS || '200', 10);
+const isSmoke = vus <= 5;
 
 export const options = {
   scenarios: {
     queue_e2e: {
       executor: 'ramping-vus',
       startVUs: 0,
-      stages: [
-        { duration: '10s', target: vus },
-        { duration: '3m', target: vus },
-        { duration: '30s', target: 0 },
-      ],
-      gracefulRampDown: '60s',
+      stages: isSmoke
+        ? [
+            { duration: '2s', target: vus },
+            { duration: '30s', target: vus },
+            { duration: '3s', target: 0 },
+          ]
+        : [
+            { duration: '10s', target: vus },
+            { duration: '3m', target: vus },
+            { duration: '30s', target: 0 },
+          ],
+      gracefulRampDown: isSmoke ? '10s' : '60s',
     },
   },
   thresholds: {
@@ -59,8 +66,9 @@ export const options = {
 export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
+  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
   console.log(`=== 대기열 부하테스트: 방식 3 (suyeon) ===`);
-  console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, VUs: ${vus}`);
+  console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, Impl: ${queueImpl}, VUs: ${vus}`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
   return { ...testData, queueUrl };
@@ -82,13 +90,14 @@ export default function (data) {
   const queueResult = waitForQueuePass(queueUrl, data.gameId, auth);
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
-  // 예매 플로우
-  const sectionId = pickRandom(data.sections);
+  // 예매 플로우: queue 통과 후 seat-grades(세션 생성) → seat-sections(동적 수집)
   browseSeatGrades(baseUrl, data.stadiumId, data.gameId, auth);
-  browseSeatSections(baseUrl, data.stadiumId, auth);
+  const sections = browseSeatSections(baseUrl, data.stadiumId, data.gameId, auth);
   browsePricingPolicy(baseUrl, data.homeTeamId, auth);
   thinkBrowse();
 
+  if (!sections || sections.length === 0) { metrics.ticketSuccess.add(false); return; }
+  const sectionId = pickRandom(sections);
   const seats = browseSeatStatus(baseUrl, data.gameId, sectionId, auth);
   if (!Array.isArray(seats)) { metrics.ticketSuccess.add(false); return; }
   const available = seats.filter((s) => s.status === 'AVAILABLE');

@@ -55,7 +55,8 @@ export const options = {
 export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
-  console.log(`=== Polling 스트레스: 방식 3 (suyeon) — ${vus} VU, ${testDuration} ===`);
+  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
+  console.log(`=== Polling 스트레스: 방식 3 (suyeon) — ${vus} VU, ${testDuration}, Impl: ${queueImpl} ===`);
   console.log(`  예상 Redis 부하: ${Math.round(vus / 2)} req/s (2초 간격 polling)`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;

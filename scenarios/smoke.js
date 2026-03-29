@@ -63,7 +63,7 @@ export default function () {
   );
 
   // 5. 좌석 구역 조회
-  const sectionsRes = get(`${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections`, auth);
+  const sectionsRes = get(`${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections?gameId=${gameId}`, auth);
   checkStatus(sectionsRes, 200, 'seat sections');
 
   let sectionId = null;

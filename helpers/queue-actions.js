@@ -5,11 +5,11 @@ import { get, post } from './http-client.js';
 /**
  * 대기열 액션 모듈 — PR #309 (구현 방식 3: suyeon).
  *
- * Queue 서비스 API:
- *   POST /api/v1/queue/enter             — 대기열 진입 (JWE 토큰 발급)
- *   GET  /api/v1/queue/{gameId}/status   — 대기 상태 조회 (Polling)
- *   POST /api/v1/queue/{gameId}/seat-enter — 좌석 진입 (토큰 검증)
- *   POST /api/v1/queue/{gameId}/leave    — 대기열 이탈
+ * Queue 서비스 API (QUEUE_IMPL prefix 자동 삽입):
+ *   POST /api/v1/queue/{impl}/enter             — 대기열 진입 (JWE 토큰 발급)
+ *   GET  /api/v1/queue/{impl}/{gameId}/status   — 대기 상태 조회 (Polling)
+ *   POST /api/v1/queue/{impl}/{gameId}/seat-enter — 좌석 진입 (토큰 검증)
+ *   POST /api/v1/queue/{impl}/{gameId}/leave    — 대기열 이탈
  *
  * ┌──────────────────────────────────────────────────────────┐
  * │ 방식 3 타이밍 사양                                        │
@@ -28,6 +28,12 @@ import { get, post } from './http-client.js';
  * │  500 VU = 250 req/s (polling only)                       │
  * └──────────────────────────────────────────────────────────┘
  */
+
+// --- POC prefix (QUEUE_IMPL=suyeon → /api/v1/queue/suyeon) ---
+const queueImpl = __ENV.QUEUE_IMPL || '';
+const queueBasePath = queueImpl
+  ? `/api/v1/queue/${queueImpl}`
+  : '/api/v1/queue';
 
 // --- 커스텀 메트릭 (대기열 전용) ---
 export const queueMetrics = {
@@ -61,7 +67,7 @@ function extractData(res) {
 export function queueEnter(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = post(
-    `${queueUrl}/api/v1/queue/enter`,
+    `${queueUrl}${queueBasePath}/enter`,
     { gameId },
     { ...auth, tags: { name: 'POST /queue/enter' } }
   );
@@ -76,7 +82,7 @@ export function queueEnter(queueUrl, gameId, auth) {
 export function queueStatus(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = get(
-    `${queueUrl}/api/v1/queue/${gameId}/status`,
+    `${queueUrl}${queueBasePath}/${gameId}/status`,
     { ...auth, tags: { name: 'GET /queue/:gameId/status' } }
   );
   queueMetrics.statusLatency.add(Date.now() - start);
@@ -90,7 +96,7 @@ export function queueStatus(queueUrl, gameId, auth) {
 export function queueSeatEnter(queueUrl, gameId, queueToken, auth) {
   const start = Date.now();
   const res = post(
-    `${queueUrl}/api/v1/queue/${gameId}/seat-enter`,
+    `${queueUrl}${queueBasePath}/${gameId}/seat-enter`,
     { queueToken },
     { ...auth, tags: { name: 'POST /queue/:gameId/seat-enter' } }
   );
@@ -104,7 +110,7 @@ export function queueSeatEnter(queueUrl, gameId, queueToken, auth) {
 export function queueLeave(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = post(
-    `${queueUrl}/api/v1/queue/${gameId}/leave`,
+    `${queueUrl}${queueBasePath}/${gameId}/leave`,
     {},
     { ...auth, tags: { name: 'POST /queue/:gameId/leave' } }
   );

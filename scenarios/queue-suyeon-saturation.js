@@ -63,7 +63,8 @@ function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
-  console.log(`=== 대기열 포화: 방식 3 (suyeon) — ${vus} VU ===`);
+  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
+  console.log(`=== 대기열 포화: 방식 3 (suyeon) — ${vus} VU, Impl: ${queueImpl} ===`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
   return { ...testData, queueUrl };
@@ -85,11 +86,12 @@ export default function (data) {
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
   // 빠른 예매 (1석, 슬롯 빠른 반환)
-  const sectionId = pickRandom(data.sections);
   browseSeatGrades(baseUrl, data.stadiumId, data.gameId, auth);
-  browseSeatSections(baseUrl, data.stadiumId, auth);
+  const sections = browseSeatSections(baseUrl, data.stadiumId, data.gameId, auth);
+  if (!sections || sections.length === 0) { metrics.ticketSuccess.add(false); return; }
   sleep(1);
 
+  const sectionId = pickRandom(sections);
   const seats = browseSeatStatus(baseUrl, data.gameId, sectionId, auth);
   if (!Array.isArray(seats)) { metrics.ticketSuccess.add(false); return; }
   const available = seats.filter((s) => s.status === 'AVAILABLE');
