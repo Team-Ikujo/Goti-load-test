@@ -86,10 +86,20 @@ export function browseSeatGrades(baseUrl, stadiumId, gameId, auth) {
   });
 }
 
-export function browseSeatSections(baseUrl, stadiumId, auth) {
-  get(`${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections`, {
+export function browseSeatSections(baseUrl, stadiumId, gameId, auth) {
+  const res = get(`${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections?gameId=${gameId}`, {
     ...auth, tags: { name: 'GET /seat-sections' },
   });
+  if (res.status === 200) {
+    try {
+      const body = JSON.parse(res.body);
+      const list = body.data || body;
+      if (Array.isArray(list)) {
+        return list.map((s) => String(s.sectionId));
+      }
+    } catch { /* ignore */ }
+  }
+  return null;
 }
 
 export function browsePricingPolicy(baseUrl, homeTeamId, auth) {
@@ -206,7 +216,7 @@ export function scenarioBrowse(baseUrl, testData, auth) {
   } else if (roll < 0.40) {
     browseSeatGrades(baseUrl, testData.stadiumId, testData.gameId, auth);
   } else if (roll < 0.55) {
-    browseSeatSections(baseUrl, testData.stadiumId, auth);
+    browseSeatSections(baseUrl, testData.stadiumId, testData.gameId, auth);
   } else if (roll < 0.70) {
     browseSeatStatus(baseUrl, testData.gameId, pickRandom(testData.sections), auth);
   } else if (roll < 0.80) {

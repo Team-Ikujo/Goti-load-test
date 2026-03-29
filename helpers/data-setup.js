@@ -58,51 +58,19 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
   const stadiumId = String(targetGame.stadiumId);
   const homeTeamId = String(targetGame.homeTeamId);
 
-  // 4. 좌석 구역 조회 → sectionId 목록
-  const sectionsRes = get(
-    `${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections`,
-    auth
-  );
-  if (!checkStatus(sectionsRes, 200, 'list seat sections')) {
-    console.error('setup: seat sections query failed');
-    return null;
-  }
-
-  const sectionsBody = JSON.parse(sectionsRes.body);
-  const sectionList = sectionsBody.data || sectionsBody;
-  const sections = Array.isArray(sectionList) ? sectionList.map((s) => String(s.sectionId)) : [];
-
-  if (sections.length === 0) {
-    console.error('setup: 좌석 구역이 없습니다');
-    return null;
-  }
-
-  // 5. 팀 ID 수집 (가격 정책/팀 조회용)
+  // 4. 팀 ID 수집 (가격 정책/팀 조회용)
   const teamIds = [...new Set(
     gameList.slice(0, 20).flatMap((g) => [g.homeTeamId, g.awayTeamId]).filter(Boolean)
   )].slice(0, 10).map(String);
 
-  // 6. 좌석 등급 조회 (잔여석 확인)
-  const gradesRes = get(
-    `${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/games/${gameId}/seat-grades`,
-    auth
-  );
-  let totalAvailable = 0;
-  if (gradesRes.status === 200) {
-    const gradesBody = JSON.parse(gradesRes.body);
-    const grades = gradesBody.data || gradesBody;
-    if (Array.isArray(grades)) {
-      totalAvailable = grades.reduce((sum, g) => sum + (g.availableSeatCount || 0), 0);
-    }
-  }
+  // NOTE: seat-grades, seat-sections는 queue 통과 + ReservationSession이 필요하므로
+  //       setup()에서 호출하지 않는다. VU의 default function에서 queue 통과 후 동적으로 조회.
 
   const testData = {
     gameId,
     stadiumId,
     homeTeamId,
-    sections,
     teamIds,
-    totalAvailable,
     ticketingStatus: targetGame.ticketingStatus,
     adminToken: authResult.token,
     adminUserId: authResult.userId,
@@ -110,8 +78,7 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
 
   console.log(
     `setup: gameId=${gameId}, stadium=${stadiumId}, ` +
-    `sections=${sections.length}개, teams=${teamIds.length}개, ` +
-    `잔여석=${totalAvailable}, status=${targetGame.ticketingStatus}`
+    `teams=${teamIds.length}개, status=${targetGame.ticketingStatus}`
   );
   return testData;
 }

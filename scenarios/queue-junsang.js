@@ -2,12 +2,11 @@ import { sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { getEnv, thresholds } from '../config/environments.js';
 import { setupTestData } from '../helpers/data-setup.js';
-import { signup, authHeaders } from '../helpers/auth.js';
+import { signup, authHeaders, meshAuthHeaders } from '../helpers/auth.js';
 import { get, post } from '../helpers/http-client.js';
 import {
   queueMetrics,
   waitForQueuePass,
-  queueAuthHeaders,
 } from '../helpers/queue-actions.js';
 import {
   metrics,
@@ -107,17 +106,19 @@ export const options = {
 export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
+  const queueImpl = __ENV.QUEUE_IMPL || '';
+  const ticketingBase = queueImpl ? `${baseUrl}/${queueImpl}` : baseUrl;
 
-  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
-  console.log(`=== 대기열 부하테스트: 방식 1 (junsang), Impl: ${queueImpl} ===`);
+  console.log(`=== 대기열 부하테스트: 방식 1 (junsang), Impl: ${queueImpl || '(none)'} ===`);
   console.log(`  API: ${baseUrl}`);
+  console.log(`  Ticketing: ${ticketingBase}`);
   console.log(`  Queue: ${queueUrl}`);
   console.log(`  VUs: ${vus}`);
 
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
 
-  return { ...testData, queueUrl };
+  return { ...testData, queueUrl, ticketingBase };
 }
 
 // --- Main ---
@@ -126,6 +127,7 @@ export default function (data) {
 
   const { baseUrl, runnerId } = getEnv();
   const queueUrl = data.queueUrl;
+  const ticketingBase = data.ticketingBase;
   const vuId = __VU;
   const iterId = __ITER;
 
@@ -137,6 +139,8 @@ export default function (data) {
     return;
   }
   const auth = authHeaders(authResult.token);
+  // ticketing/payment MSA pod 직접 라우팅 시 X-User-Id 필요
+  const meshAuth = meshAuthHeaders(authResult.token, authResult.userId);
 
   // 2. 대기열 E2E 시작
   const e2eStart = Date.now();
@@ -153,19 +157,22 @@ export default function (data) {
     `  VU${vuId}: 대기열 통과 — ${queueResult.waitMs}ms, polls=${queueResult.polls}`
   );
 
-  // 4. Queue Token이 포함된 인증 헤더 (QueueInterceptor 검증용)
-  const queueAuth = queueAuthHeaders(authResult.token, queueResult.token);
-  const sectionId = pickRandom(data.sections);
-
-  // 5. 구역 선택 페이지 (seat-grades는 QueueInterceptor 보호 대상)
-  browseSeatGrades(baseUrl, data.stadiumId, data.gameId, queueAuth);
-  browseSeatSections(baseUrl, data.stadiumId, auth);
-  browsePricingPolicy(baseUrl, data.homeTeamId, auth);
+  // 4. 예매 플로우 (ticketing/payment API는 meshAuth 사용 — X-User-Id 필요)
+  // 5. 구역 선택 페이지
+  browseSeatGrades(ticketingBase, data.stadiumId, data.gameId, meshAuth);
+  const sections = browseSeatSections(ticketingBase, data.stadiumId, data.gameId, meshAuth);
+  browsePricingPolicy(ticketingBase, data.homeTeamId, meshAuth);
 
   thinkBrowse();
 
+  if (!sections || sections.length === 0) {
+    metrics.ticketSuccess.add(false);
+    return;
+  }
+  const sectionId = pickRandom(sections);
+
   // 6. 좌석 선택
-  const seats = browseSeatStatus(baseUrl, data.gameId, sectionId, auth);
+  const seats = browseSeatStatus(ticketingBase, data.gameId, sectionId, meshAuth);
   if (!Array.isArray(seats)) {
     metrics.ticketSuccess.add(false);
     return;
@@ -183,7 +190,7 @@ export default function (data) {
   const holdIds = [];
   const shuffled = available.sort(() => Math.random() - 0.5);
   for (let i = 0; i < Math.min(wantCount, shuffled.length); i++) {
-    const hid = holdSeat(baseUrl, shuffled[i].seatId, data.gameId, vuId, iterId, auth);
+    const hid = holdSeat(ticketingBase, shuffled[i].seatId, data.gameId, vuId, iterId, meshAuth);
     if (hid) holdIds.push(hid);
   }
   if (holdIds.length === 0) {
@@ -194,7 +201,7 @@ export default function (data) {
   thinkOrderForm();
 
   // 8. 주문 생성
-  const order = createOrder(baseUrl, data.gameId, holdIds, vuId, auth);
+  const order = createOrder(ticketingBase, data.gameId, holdIds, vuId, meshAuth);
   if (!order) {
     metrics.ticketSuccess.add(false);
     return;
@@ -202,8 +209,8 @@ export default function (data) {
 
   thinkPayment();
 
-  // 9. 결제
-  const payment = payOrder(baseUrl, order.orderId, vuId, auth);
+  // 9. 결제 (junsang 전용 payment pod — meshAuth로 X-User-Id 전달)
+  const payment = payOrder(ticketingBase, order.orderId, vuId, meshAuth);
   const success = !!payment;
 
   // 10. E2E 시간 기록

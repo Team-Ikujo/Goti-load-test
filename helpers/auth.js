@@ -53,3 +53,19 @@ export function authHeaders(token) {
     },
   };
 }
+
+/**
+ * MSA pod 직접 라우팅용 인증 헤더 (POC).
+ * Istio VirtualService가 ticketing/payment pod에 직접 라우팅할 때,
+ * MeshAuthenticationFilter가 X-User-Id 헤더를 필요로 한다.
+ * (정상 흐름에서는 user 서비스가 JWT→X-User-Id 변환 담당)
+ */
+export function meshAuthHeaders(token, userId) {
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-User-Id': String(userId),
+      'X-User-Role': 'MEMBER',
+    },
+  };
+}

@@ -1,12 +1,11 @@
 import { sleep } from 'k6';
 import { getEnv, thresholds } from '../config/environments.js';
 import { setupTestData } from '../helpers/data-setup.js';
-import { signup, authHeaders } from '../helpers/auth.js';
+import { signup, authHeaders, meshAuthHeaders } from '../helpers/auth.js';
 import { metrics } from '../helpers/ticketing-actions.js';
 import {
   queueMetrics,
   waitForQueuePass,
-  queueAuthHeaders,
 } from '../helpers/queue-actions.js';
 import {
   browseSeatGrades,
@@ -69,11 +68,14 @@ function pickRandom(arr) {
 export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
-  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
-  console.log(`=== 대기열 포화: 방식 1 (junsang) — ${vus} VU, Impl: ${queueImpl} ===`);
+  const queueImpl = __ENV.QUEUE_IMPL || '';
+  const ticketingBase = queueImpl ? `${baseUrl}/${queueImpl}` : baseUrl;
+
+  console.log(`=== 대기열 포화: 방식 1 (junsang) — ${vus} VU, Impl: ${queueImpl || '(none)'} ===`);
+  console.log(`  Ticketing: ${ticketingBase}`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
-  return { ...testData, queueUrl };
+  return { ...testData, queueUrl, ticketingBase };
 }
 
 export default function (data) {
@@ -81,11 +83,13 @@ export default function (data) {
 
   const { baseUrl, runnerId } = getEnv();
   const queueUrl = data.queueUrl;
+  const ticketingBase = data.ticketingBase;
   const uniqueId = runnerId * 1000000 + __VU * 10000 + __ITER;
 
   const authResult = signup(baseUrl, uniqueId, runnerId);
   if (!authResult) { metrics.ticketSuccess.add(false); return; }
   const auth = authHeaders(authResult.token);
+  const meshAuth = meshAuthHeaders(authResult.token, authResult.userId);
 
   const e2eStart = Date.now();
 
@@ -94,28 +98,29 @@ export default function (data) {
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
   // 빠른 예매 (1석만, 슬롯 빠른 반환 목적)
-  const queueAuth = queueAuthHeaders(authResult.token, queueResult.token);
-  const sectionId = pickRandom(data.sections);
-
-  browseSeatGrades(baseUrl, data.stadiumId, data.gameId, queueAuth);
-  browseSeatSections(baseUrl, data.stadiumId, auth);
+  // ticketing/payment API는 meshAuth 사용 — X-User-Id 필요
+  browseSeatGrades(ticketingBase, data.stadiumId, data.gameId, meshAuth);
+  const sections = browseSeatSections(ticketingBase, data.stadiumId, data.gameId, meshAuth);
   sleep(1);
 
-  const seats = browseSeatStatus(baseUrl, data.gameId, sectionId, auth);
+  if (!sections || sections.length === 0) { metrics.ticketSuccess.add(false); return; }
+  const sectionId = pickRandom(sections);
+
+  const seats = browseSeatStatus(ticketingBase, data.gameId, sectionId, meshAuth);
   if (!Array.isArray(seats)) { metrics.ticketSuccess.add(false); return; }
   const available = seats.filter((s) => s.status === 'AVAILABLE');
   if (available.length === 0) { metrics.ticketSuccess.add(false); return; }
 
   const seat = available[Math.floor(Math.random() * available.length)];
-  const hid = holdSeat(baseUrl, seat.seatId, data.gameId, __VU, __ITER, auth);
+  const hid = holdSeat(ticketingBase, seat.seatId, data.gameId, __VU, __ITER, meshAuth);
   if (!hid) { metrics.ticketSuccess.add(false); return; }
 
   sleep(1);
-  const order = createOrder(baseUrl, data.gameId, [hid], __VU, auth);
+  const order = createOrder(ticketingBase, data.gameId, [hid], __VU, meshAuth);
   if (!order) { metrics.ticketSuccess.add(false); return; }
 
   sleep(1);
-  const payment = payOrder(baseUrl, order.orderId, __VU, auth);
+  const payment = payOrder(ticketingBase, order.orderId, __VU, meshAuth);
   const success = !!payment;
 
   queueMetrics.e2eDuration.add(Date.now() - e2eStart);
