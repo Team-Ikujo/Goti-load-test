@@ -160,6 +160,23 @@ export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 120, pollInt
 }
 
 /**
+ * 대기열 슬롯 반환 (예매 완료 후).
+ * MSA 환경에서 BookingCompletedEvent가 전파되지 않으므로,
+ * K6가 직접 호출하여 PASSED 키를 삭제한다.
+ *
+ * @param {string} queueUrl  Queue 서비스 base URL
+ * @param {string} gameId    대상 경기 ID
+ * @param {object} auth      인증 헤더
+ */
+export function queueComplete(queueUrl, gameId, auth) {
+  post(
+    `${queueUrl}${queueBasePath}/complete/games/${gameId}`,
+    {},
+    { ...auth, tags: { name: 'POST /queue/complete' } }
+  );
+}
+
+/**
  * Queue Token을 포함한 인증 헤더 생성.
  * QueueInterceptor가 X-Queue-Token 헤더를 검증한다.
  */
