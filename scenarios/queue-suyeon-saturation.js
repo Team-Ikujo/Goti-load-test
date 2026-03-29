@@ -77,7 +77,7 @@ export default function (data) {
   const uniqueId = runnerId * 1000000 + __VU * 10000 + __ITER;
 
   const authResult = signup(baseUrl, uniqueId, runnerId);
-  if (!authResult) { metrics.ticketSuccess.add(false); return; }
+  if (!authResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
   const auth = authHeaders(authResult.token);
 
   const e2eStart = Date.now();
