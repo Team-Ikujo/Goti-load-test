@@ -20,6 +20,12 @@ import { get, post } from './http-client.js';
  *   - 보호 대상: /api/v1/stadium-seats/stadiums/{}/games/{}/seat-grades
  */
 
+// --- POC prefix (QUEUE_IMPL=junsang → /api/v1/queue/junsang) ---
+const queueImpl = __ENV.QUEUE_IMPL || '';
+const queueBasePath = queueImpl
+  ? `/api/v1/queue/${queueImpl}`
+  : '/api/v1/queue';
+
 // --- 커스텀 메트릭 (대기열 전용) ---
 export const queueMetrics = {
   // 대기열 진입 응답 시간
@@ -62,7 +68,7 @@ function extractData(res) {
 export function queueValidate(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = post(
-    `${queueUrl}/api/v1/queue/validate`,
+    `${queueUrl}${queueBasePath}/validate`,
     { gameId },
     { ...auth, tags: { name: 'POST /queue/validate' } }
   );
@@ -79,7 +85,7 @@ export function queueValidate(queueUrl, gameId, auth) {
 export function queueStatus(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = get(
-    `${queueUrl}/api/v1/queue/status/games/${gameId}`,
+    `${queueUrl}${queueBasePath}/status/games/${gameId}`,
     { ...auth, tags: { name: 'GET /queue/status' } }
   );
   queueMetrics.statusLatency.add(Date.now() - start);

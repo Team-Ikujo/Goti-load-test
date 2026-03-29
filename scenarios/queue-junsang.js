@@ -108,7 +108,8 @@ export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
 
-  console.log(`=== 대기열 부하테스트: 방식 1 (junsang) ===`);
+  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
+  console.log(`=== 대기열 부하테스트: 방식 1 (junsang), Impl: ${queueImpl} ===`);
   console.log(`  API: ${baseUrl}`);
   console.log(`  Queue: ${queueUrl}`);
   console.log(`  VUs: ${vus}`);

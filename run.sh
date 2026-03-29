@@ -35,6 +35,7 @@ _CLI_MIMIR_PUSH_URL="${MIMIR_PUSH_URL-}"
 _CLI_START_TIME="${START_TIME-}"
 _CLI_TEST_NAME="${TEST_NAME-}"
 _CLI_QUEUE_URL="${QUEUE_URL-}"
+_CLI_QUEUE_IMPL="${QUEUE_IMPL-}"
 
 # config 파일 로드 (없으면 my-config.env.example → my-config.env 복사 안내)
 if [ -f "$CONFIG_FILE" ]; then
@@ -55,6 +56,7 @@ fi
 [ -n "$_CLI_START_TIME" ]     && START_TIME="$_CLI_START_TIME"
 [ -n "$_CLI_TEST_NAME" ]     && TEST_NAME="$_CLI_TEST_NAME"
 [ -n "$_CLI_QUEUE_URL" ]     && QUEUE_URL="$_CLI_QUEUE_URL"
+[ -n "$_CLI_QUEUE_IMPL" ]    && QUEUE_IMPL="$_CLI_QUEUE_IMPL"
 
 # 기본값 (어디에도 설정 안 된 항목만)
 RUNNER_ID="${RUNNER_ID:-0}"
@@ -68,6 +70,7 @@ PUSH_METRICS="${PUSH_METRICS:-false}"
 MIMIR_PUSH_URL="${MIMIR_PUSH_URL:-}"
 START_TIME="${START_TIME:-}"
 QUEUE_URL="${QUEUE_URL:-}"
+QUEUE_IMPL="${QUEUE_IMPL:-}"
 
 # ---------------------------------------------------------------------------
 # 실행 (아래는 수정 불필요)
@@ -136,6 +139,7 @@ echo "  VUS:         $VUS"
 echo "  URL:         $BASE_URL"
 echo "  Mimir Push:  $PUSH_METRICS"
 [ -n "$QUEUE_URL" ]         && echo "  Queue URL:   $QUEUE_URL"
+[ -n "$QUEUE_IMPL" ]        && echo "  Queue 구현체: $QUEUE_IMPL"
 [ "$SCENARIO" = "spike" ]  && echo "  MAX_RATE:    $MAX_RATE rps"
 [ "$SCENARIO" = "soak" ]   && echo "  DURATION:    $DURATION"
 [ -n "$START_TIME" ]        && echo "  시작 시각:   $START_TIME"
@@ -184,6 +188,7 @@ K6_ARGS=(
   -e MAX_RATE="$MAX_RATE"
   -e DURATION="$DURATION"
   -e QUEUE_URL="$QUEUE_URL"
+  -e QUEUE_IMPL="$QUEUE_IMPL"
   --tag runner="$RUNNER_NAME"
   --tag test_name="$TEST_NAME"
   --tag scenario="$SCENARIO"
