@@ -5,6 +5,7 @@ import { signup, authHeaders } from '../helpers/auth.js';
 import { metrics } from '../helpers/ticketing-actions.js';
 import {
   queueMetrics,
+  queueInit,
   waitForQueuePass,
   queueLeave,
 } from '../helpers/queue-actions.js';
@@ -74,9 +75,15 @@ export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
   console.log(`=== 대기열 포화: 방식 2 (sungjeon) — ${vus} VU (수용 100명) ===`);
-  const testData = setupTestData(baseUrl, runnerId, gameId);
+  const testData = setupTestData(baseUrl, runnerId, gameId, '/sungjeon');
   if (!testData) return null;
-  return { ...testData, queueUrl };
+
+  const adminAuth = authHeaders(testData.adminToken);
+  const initOk = queueInit(queueUrl, testData.gameId, 100, adminAuth);
+  console.log(`  queue init: ${initOk ? 'OK' : 'FAILED (이미 초기화됨)'}`);
+
+  const ticketingUrl = `${baseUrl}/sungjeon`;
+  return { ...testData, queueUrl, ticketingUrl };
 }
 
 export default function (data) {
@@ -103,14 +110,15 @@ export default function (data) {
     return;
   }
 
-  // 빠른 예매 (1석만, 슬롯 빠른 반환 목적)
+  // 빠른 예매 (1석만, 슬롯 빠른 반환 목적) — ticketing 전용 pod
+  const ticketingUrl = data.ticketingUrl;
   const sectionId = pickRandom(data.sections);
 
-  browseSeatGrades(baseUrl, data.stadiumId, data.gameId, auth);
-  browseSeatSections(baseUrl, data.stadiumId, auth);
+  browseSeatGrades(ticketingUrl, data.stadiumId, data.gameId, auth);
+  browseSeatSections(ticketingUrl, data.stadiumId, data.gameId, auth);
   sleep(1);
 
-  const seats = browseSeatStatus(baseUrl, data.gameId, sectionId, auth);
+  const seats = browseSeatStatus(ticketingUrl, data.gameId, sectionId, auth);
   if (!Array.isArray(seats)) {
     metrics.ticketSuccess.add(false);
     return;
@@ -122,7 +130,7 @@ export default function (data) {
   }
 
   const seat = available[Math.floor(Math.random() * available.length)];
-  const hid = holdSeat(baseUrl, seat.seatId, data.gameId, __VU, __ITER, auth);
+  const hid = holdSeat(ticketingUrl, seat.seatId, data.gameId, __VU, __ITER, auth);
   if (!hid) {
     metrics.ticketSuccess.add(false);
     return;
@@ -130,7 +138,7 @@ export default function (data) {
 
   sleep(1);
 
-  const order = createOrder(baseUrl, data.gameId, [hid], __VU, auth);
+  const order = createOrder(ticketingUrl, data.gameId, [hid], __VU, auth);
   if (!order) {
     metrics.ticketSuccess.add(false);
     return;
@@ -138,7 +146,7 @@ export default function (data) {
 
   sleep(1);
 
-  const payment = payOrder(baseUrl, order.orderId, __VU, auth);
+  const payment = payOrder(ticketingUrl, order.orderId, __VU, auth);
   const success = !!payment;
 
   // 결제 완료 → 대기열 이탈 (슬롯 반환)

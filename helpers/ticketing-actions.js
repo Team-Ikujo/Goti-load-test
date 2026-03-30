@@ -86,8 +86,8 @@ export function browseSeatGrades(baseUrl, stadiumId, gameId, auth) {
   });
 }
 
-export function browseSeatSections(baseUrl, stadiumId, auth) {
-  get(`${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections`, {
+export function browseSeatSections(baseUrl, stadiumId, gameId, auth) {
+  get(`${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections?gameId=${gameId}`, {
     ...auth, tags: { name: 'GET /seat-sections' },
   });
 }

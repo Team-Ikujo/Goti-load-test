@@ -26,6 +26,9 @@ import { get, post, del } from './http-client.js';
  * └──────────────────────────────────────────────────────────┘
  */
 
+// Istio rewrite 경로: /api/v1/queue/sungjeon → /api/v1/queues
+const queueBasePath = '/api/v1/queue/sungjeon';
+
 // --- 커스텀 메트릭 (대기열 전용) ---
 export const queueMetrics = {
   enterLatency: new Trend('queue_enter_ms', true),
@@ -52,14 +55,26 @@ function extractData(res) {
 }
 
 /**
+ * 대기열 초기화 (성전님 전용 — 수동 호출 필요).
+ */
+export function queueInit(queueUrl, gameId, maxCapacity, auth) {
+  const res = post(
+    `${queueUrl}${queueBasePath}/init?gameId=${gameId}&maxCapacity=${maxCapacity}`,
+    null,
+    { ...auth, tags: { name: 'POST /queues/init' } }
+  );
+  return res.status >= 200 && res.status < 300;
+}
+
+/**
  * 대기열 진입.
  * @returns {{ secureToken: string, myQueueNum: number, gameId: string } | null}
  */
 export function queueEnter(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = post(
-    `${queueUrl}/api/v1/queues/enter`,
-    { gameId },
+    `${queueUrl}${queueBasePath}/enter?gameId=${gameId}`,
+    null,
     { ...auth, tags: { name: 'POST /queues/enter' } }
   );
   queueMetrics.enterLatency.add(Date.now() - start);
@@ -73,7 +88,7 @@ export function queueEnter(queueUrl, gameId, auth) {
 export function queueGlobalStatus(queueUrl, secureToken, auth) {
   const start = Date.now();
   const res = get(
-    `${queueUrl}/api/v1/queues/global-status?secureToken=${encodeURIComponent(secureToken)}`,
+    `${queueUrl}${queueBasePath}/global-status?secureToken=${encodeURIComponent(secureToken)}`,
     { ...auth, tags: { name: 'GET /queues/global-status' } }
   );
   queueMetrics.statusLatency.add(Date.now() - start);
@@ -86,8 +101,8 @@ export function queueGlobalStatus(queueUrl, secureToken, auth) {
 export function queueSeatEnter(queueUrl, secureToken, auth) {
   const start = Date.now();
   const res = post(
-    `${queueUrl}/api/v1/queues/seat/enter?secureToken=${encodeURIComponent(secureToken)}`,
-    {},
+    `${queueUrl}${queueBasePath}/seat/enter?secureToken=${encodeURIComponent(secureToken)}`,
+    null,
     { ...auth, tags: { name: 'POST /queues/seat/enter' } }
   );
   queueMetrics.seatEnterLatency.add(Date.now() - start);
@@ -100,8 +115,8 @@ export function queueSeatEnter(queueUrl, secureToken, auth) {
 export function queueHeartbeatWaiting(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = post(
-    `${queueUrl}/api/v1/queues/heartbeat/waiting`,
-    { gameId },
+    `${queueUrl}${queueBasePath}/heartbeat/waiting?gameId=${gameId}`,
+    null,
     { ...auth, tags: { name: 'POST /queues/heartbeat/waiting' } }
   );
   queueMetrics.heartbeatLatency.add(Date.now() - start);
@@ -113,7 +128,7 @@ export function queueHeartbeatWaiting(queueUrl, gameId, auth) {
  */
 export function queueLeave(queueUrl, gameId, auth) {
   const res = del(
-    `${queueUrl}/api/v1/queues/games/${gameId}`,
+    `${queueUrl}${queueBasePath}/games/${gameId}`,
     { ...auth, tags: { name: 'DELETE /queues/games/:gameId' } }
   );
   return res.status >= 200 && res.status < 300;

@@ -4,6 +4,7 @@ import { setupTestData } from '../helpers/data-setup.js';
 import { signup, authHeaders } from '../helpers/auth.js';
 import {
   queueMetrics,
+  queueInit,
   waitForQueuePass,
   queueLeave,
 } from '../helpers/queue-actions.js';
@@ -73,9 +74,16 @@ export function setup() {
   console.log(`=== 대기열 부하테스트: 방식 2 (sungjeon) ===`);
   console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, VUs: ${vus}`);
 
-  const testData = setupTestData(baseUrl, runnerId, gameId);
+  const testData = setupTestData(baseUrl, runnerId, gameId, '/sungjeon');
   if (!testData) return null;
-  return { ...testData, queueUrl };
+
+  // 성전님 대기열 초기화 (수동 필수)
+  const adminAuth = authHeaders(testData.adminToken);
+  const initOk = queueInit(queueUrl, testData.gameId, 100, adminAuth);
+  console.log(`  queue init: ${initOk ? 'OK' : 'FAILED (이미 초기화됨)'}`);
+
+  const ticketingUrl = `${baseUrl}/sungjeon`;
+  return { ...testData, queueUrl, ticketingUrl };
 }
 
 export default function (data) {
@@ -95,14 +103,15 @@ export default function (data) {
   const queueResult = waitForQueuePass(queueUrl, data.gameId, auth);
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
-  // 예매 플로우
+  // 예매 플로우 — ticketing/payment 전용 pod (/sungjeon prefix)
+  const ticketingUrl = data.ticketingUrl;
   const sectionId = pickRandom(data.sections);
-  browseSeatGrades(baseUrl, data.stadiumId, data.gameId, auth);
-  browseSeatSections(baseUrl, data.stadiumId, auth);
-  browsePricingPolicy(baseUrl, data.homeTeamId, auth);
+  browseSeatGrades(ticketingUrl, data.stadiumId, data.gameId, auth);
+  browseSeatSections(ticketingUrl, data.stadiumId, data.gameId, auth);
+  browsePricingPolicy(ticketingUrl, data.homeTeamId, auth);
   thinkBrowse();
 
-  const seats = browseSeatStatus(baseUrl, data.gameId, sectionId, auth);
+  const seats = browseSeatStatus(ticketingUrl, data.gameId, sectionId, auth);
   if (!Array.isArray(seats)) { metrics.ticketSuccess.add(false); return; }
   const available = seats.filter((s) => s.status === 'AVAILABLE');
   if (available.length === 0) { metrics.ticketSuccess.add(false); return; }
@@ -113,17 +122,17 @@ export default function (data) {
   const holdIds = [];
   const shuffled = available.sort(() => Math.random() - 0.5);
   for (let i = 0; i < Math.min(wantCount, shuffled.length); i++) {
-    const hid = holdSeat(baseUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth);
+    const hid = holdSeat(ticketingUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth);
     if (hid) holdIds.push(hid);
   }
   if (holdIds.length === 0) { metrics.ticketSuccess.add(false); return; }
 
   thinkOrderForm();
-  const order = createOrder(baseUrl, data.gameId, holdIds, __VU, auth);
+  const order = createOrder(ticketingUrl, data.gameId, holdIds, __VU, auth);
   if (!order) { metrics.ticketSuccess.add(false); return; }
 
   thinkPayment();
-  const payment = payOrder(baseUrl, order.orderId, __VU, auth);
+  const payment = payOrder(ticketingUrl, order.orderId, __VU, auth);
   const success = !!payment;
 
   if (success) queueLeave(queueUrl, data.gameId, auth);

@@ -10,7 +10,7 @@ import { signup, authHeaders } from './auth.js';
  *
  * 전제: seed-kbo-data.sh + seed-kbo-games.sh 실행 완료
  */
-export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
+export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null, ticketingPrefix = '') {
   // 1. 관리자 유저 생성 + JWT
   const authResult = signup(baseUrl, 1, runnerId);
   if (!authResult) {
@@ -59,8 +59,9 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
   const homeTeamId = String(targetGame.homeTeamId);
 
   // 4. 좌석 구역 조회 → sectionId 목록
+  const ticketingUrl = ticketingPrefix ? `${baseUrl}${ticketingPrefix}` : baseUrl;
   const sectionsRes = get(
-    `${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections`,
+    `${ticketingUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections?gameId=${gameId}`,
     auth
   );
   if (!checkStatus(sectionsRes, 200, 'list seat sections')) {
@@ -84,7 +85,7 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
 
   // 6. 좌석 등급 조회 (잔여석 확인)
   const gradesRes = get(
-    `${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/games/${gameId}/seat-grades`,
+    `${ticketingUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/games/${gameId}/seat-grades`,
     auth
   );
   let totalAvailable = 0;
