@@ -1,7 +1,7 @@
 import { sleep } from 'k6';
 import { getEnv, thresholds } from '../config/environments.js';
 import { setupTestData } from '../helpers/data-setup.js';
-import { signup, authHeaders } from '../helpers/auth.js';
+import { authHeaders } from '../helpers/auth.js';
 import { metrics } from '../helpers/ticketing-actions.js';
 import {
   queueMetrics, waitForQueuePass, queueLeave,
@@ -38,6 +38,7 @@ import {
 const vus = parseInt(__ENV.VUS || '300', 10);
 
 export const options = {
+  setupTimeout: '180s',
   scenarios: {
     queue_saturation: {
       executor: 'ramping-vus',
@@ -74,11 +75,11 @@ export default function (data) {
   if (!data) return;
   const { baseUrl, runnerId } = getEnv();
   const queueUrl = data.queueUrl;
-  const uniqueId = runnerId * 1000000 + __VU * 10000 + __ITER;
 
-  const authResult = signup(baseUrl, uniqueId, runnerId);
-  if (!authResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
-  const auth = authHeaders(authResult.token);
+  // setup에서 사전 발급된 토큰 사용 → VU 실행 중 login/signup 호출 제거
+  const preToken = data.tokens && data.tokens[__VU];
+  if (!preToken) { metrics.ticketSuccess.add(false); sleep(5 + Math.random() * 5); return; }
+  const auth = authHeaders(preToken);
 
   const e2eStart = Date.now();
 
