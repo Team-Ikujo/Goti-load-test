@@ -172,6 +172,11 @@ export function payOrder(baseUrl, orderId, vuId, auth) {
   );
   metrics.payment.add(Date.now() - start);
 
+  // DEBUG: payment 응답 확인
+  if (res.status !== 200) {
+    console.warn(`  [payOrder] status=${res.status}, body=${res.body}`);
+  }
+
   const data = extractData(res);
   if (!data) return null;
   return {

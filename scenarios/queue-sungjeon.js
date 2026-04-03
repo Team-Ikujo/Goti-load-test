@@ -26,7 +26,8 @@ import {
  * 브랜치: poc/queue-waiting-sungjeon
  *
  * 플로우:
- *   회원가입 → 대기열 진입(enter) → Polling(5초) + Heartbeat(10초)
+ *   [setup] 회원가입 일괄 발급 (VU 수만큼)
+ *   [VU] 대기열 진입(enter) → Polling(5초) + Heartbeat(10초)
  *   → 통과(seat/enter) → 등급조회 → 섹션조회 → 가격조회
  *   → 좌석상태 → Hold → 주문 → 결제 → 대기열 이탈(leave)
  *
@@ -45,7 +46,7 @@ const vus = parseInt(__ENV.VUS || '200', 10);
 const isSmoke = vus <= 5;
 
 export const options = {
-  setupTimeout: '180s',
+  setupTimeout: '300s',
   scenarios: {
     queue_spike: {
       executor: 'ramping-vus',
@@ -90,20 +91,45 @@ export function setup() {
   const initOk = queueInit(queueUrl, testData.gameId, 100, adminAuth);
   console.log(`  queue init: ${initOk ? 'OK' : 'FAILED (이미 초기화됨)'}`);
 
+  // VU 토큰 일괄 발급 — user 서비스 부하 분산
+  const tokens = [];
+  const batchSize = 10; // 10명씩 순차 발급
+  const totalUsers = vus;
+  console.log(`  토큰 일괄 발급 시작: ${totalUsers}명`);
+
+  for (let i = 0; i < totalUsers; i++) {
+    const uniqueId = runnerId * 1000000 + i + 1;
+    const result = signup(baseUrl, uniqueId, runnerId);
+    if (result) {
+      tokens.push({ token: result.token, userId: result.userId });
+    }
+    // 10명마다 진행률 로그
+    if ((i + 1) % 100 === 0) {
+      console.log(`  토큰 발급: ${i + 1}/${totalUsers} (성공: ${tokens.length})`);
+    }
+  }
+
+  console.log(`  토큰 발급 완료: ${tokens.length}/${totalUsers}`);
+  if (tokens.length === 0) {
+    console.error('  토큰 발급 전부 실패 — 테스트 중단');
+    return null;
+  }
+
   const ticketingUrl = `https://api.go-ti.shop/sungjeon`;
-  return { ...testData, queueUrl, ticketingUrl };
+  return { ...testData, queueUrl, ticketingUrl, tokens };
 }
 
 export default function (data) {
-  if (!data) return;
+  if (!data || !data.tokens || data.tokens.length === 0) return;
 
-  const { baseUrl, runnerId } = getEnv();
+  const { runnerId } = getEnv();
   const queueUrl = data.queueUrl;
-  const uniqueId = runnerId * 1000000 + __VU * 10000 + __ITER;
+  const ticketingUrl = data.ticketingUrl;
 
-  const authResult = signup(baseUrl, uniqueId, runnerId);
-  if (!authResult) { metrics.ticketSuccess.add(false); return; }
-  const auth = authHeaders(authResult.token);
+  // VU별로 고유 토큰 할당 (VU ID 기반 순환)
+  const tokenIdx = (__VU - 1) % data.tokens.length;
+  const { token } = data.tokens[tokenIdx];
+  const auth = authHeaders(token);
 
   const e2eStart = Date.now();
 
@@ -112,7 +138,6 @@ export default function (data) {
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
   // 예매 플로우 — ticketing/payment 전용 pod (/sungjeon prefix)
-  const ticketingUrl = data.ticketingUrl;
   const sectionId = pickRandom(data.sections);
   browseSeatGrades(ticketingUrl, data.stadiumId, data.gameId, auth);
   browseSeatSections(ticketingUrl, data.stadiumId, data.gameId, auth);
