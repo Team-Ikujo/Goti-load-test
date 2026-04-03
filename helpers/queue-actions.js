@@ -7,7 +7,7 @@ import { get, post } from './http-client.js';
  *
  * Queue 서비스 API (QUEUE_IMPL prefix 자동 삽입):
  *   POST /api/v1/queue/{impl}/enter             — 대기열 진입 (JWE 토큰 발급)
- *   GET  /api/v1/queue/{impl}/{gameId}/status   — 대기 상태 조회 (Polling)
+ *   GET  /api/v1/queue/{impl}/{gameId}/global-status — 대기 상태 조회 (CDN 캐싱, Polling)
  *   POST /api/v1/queue/{impl}/{gameId}/seat-enter — 좌석 진입 (토큰 검증)
  *   POST /api/v1/queue/{impl}/{gameId}/leave    — 대기열 이탈
  *
@@ -82,8 +82,8 @@ export function queueEnter(queueUrl, gameId, auth) {
 export function queueStatus(queueUrl, gameId, auth) {
   const start = Date.now();
   const res = get(
-    `${queueUrl}${queueBasePath}/${gameId}/status`,
-    { ...auth, tags: { name: 'GET /queue/:gameId/status' } }
+    `${queueUrl}${queueBasePath}/${gameId}/global-status`,
+    { tags: { name: 'GET /queue/:gameId/global-status' } }
   );
   queueMetrics.statusLatency.add(Date.now() - start);
   return extractData(res);

@@ -34,6 +34,7 @@ const vus = parseInt(__ENV.VUS || '200', 10);
 const isSmoke = vus <= 5;
 
 export const options = {
+  setupTimeout: '180s',
   scenarios: {
     queue_e2e: {
       executor: 'ramping-vus',
@@ -45,8 +46,8 @@ export const options = {
             { duration: '3s', target: 0 },
           ]
         : [
-            { duration: '10s', target: vus },
-            { duration: '3m', target: vus },
+            { duration: '30s', target: vus },
+            { duration: '9m', target: vus },
             { duration: '30s', target: 0 },
           ],
       gracefulRampDown: isSmoke ? '10s' : '60s',
@@ -67,17 +68,20 @@ export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
   const queueImpl = __ENV.QUEUE_IMPL || '(none)';
+  // ticketing-suyeon은 /suyeon prefix로 라우팅 (deploy/prod와 API 경로가 다름)
+  const ticketingUrl = `${baseUrl}/suyeon`;
   console.log(`=== 대기열 부하테스트: 방식 3 (suyeon) ===`);
-  console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, Impl: ${queueImpl}, VUs: ${vus}`);
+  console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, Ticketing: ${ticketingUrl}, Impl: ${queueImpl}, VUs: ${vus}`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
-  return { ...testData, queueUrl };
+  return { ...testData, queueUrl, ticketingUrl };
 }
 
 export default function (data) {
   if (!data) return;
   const { baseUrl, runnerId } = getEnv();
   const queueUrl = data.queueUrl;
+  const tUrl = data.ticketingUrl; // ticketing-suyeon (/suyeon prefix)
   const uniqueId = runnerId * 1000000 + __VU * 10000 + __ITER;
 
   const authResult = signup(baseUrl, uniqueId, runnerId);
@@ -90,15 +94,15 @@ export default function (data) {
   const queueResult = waitForQueuePass(queueUrl, data.gameId, auth);
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
-  // 예매 플로우: queue 통과 후 seat-grades(세션 생성) → seat-sections(동적 수집)
-  browseSeatGrades(baseUrl, data.stadiumId, data.gameId, auth);
-  const sections = browseSeatSections(baseUrl, data.stadiumId, data.gameId, auth);
-  browsePricingPolicy(baseUrl, data.homeTeamId, auth);
+  // 예매 플로우: ticketing-suyeon으로 라우팅 (/suyeon prefix)
+  browseSeatGrades(tUrl, data.stadiumId, data.gameId, auth);
+  const sections = browseSeatSections(tUrl, data.stadiumId, data.gameId, auth);
+  browsePricingPolicy(tUrl, data.homeTeamId, auth);
   thinkBrowse();
 
   if (!sections || sections.length === 0) { metrics.ticketSuccess.add(false); return; }
   const sectionId = pickRandom(sections);
-  const seats = browseSeatStatus(baseUrl, data.gameId, sectionId, auth);
+  const seats = browseSeatStatus(tUrl, data.gameId, sectionId, auth);
   if (!Array.isArray(seats)) { metrics.ticketSuccess.add(false); return; }
   const available = seats.filter((s) => s.status === 'AVAILABLE');
   if (available.length === 0) { metrics.ticketSuccess.add(false); return; }
@@ -109,17 +113,17 @@ export default function (data) {
   const holdIds = [];
   const shuffled = available.sort(() => Math.random() - 0.5);
   for (let i = 0; i < Math.min(wantCount, shuffled.length); i++) {
-    const hid = holdSeat(baseUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth);
+    const hid = holdSeat(tUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth);
     if (hid) holdIds.push(hid);
   }
   if (holdIds.length === 0) { metrics.ticketSuccess.add(false); return; }
 
   thinkOrderForm();
-  const order = createOrder(baseUrl, data.gameId, holdIds, __VU, auth);
+  const order = createOrder(tUrl, data.gameId, holdIds, __VU, auth);
   if (!order) { metrics.ticketSuccess.add(false); return; }
 
   thinkPayment();
-  const payment = payOrder(baseUrl, order.orderId, __VU, auth);
+  const payment = payOrder(tUrl, order.orderId, __VU, auth);
   const success = !!payment;
 
   if (success) queueLeave(queueUrl, data.gameId, auth);
