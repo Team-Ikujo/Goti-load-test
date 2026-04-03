@@ -47,6 +47,7 @@ const isSmoke = vus <= 5;
 
 export const options = {
   setupTimeout: '300s',
+  insecureSkipTLSVerify: true,
   scenarios: {
     queue_spike: {
       executor: 'ramping-vus',
@@ -115,7 +116,7 @@ export function setup() {
     return null;
   }
 
-  const ticketingUrl = `https://api.go-ti.shop/sungjeon`;
+  const ticketingUrl = `${baseUrl}/sungjeon`;
   return { ...testData, queueUrl, ticketingUrl, tokens };
 }
 
