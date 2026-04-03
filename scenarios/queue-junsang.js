@@ -78,6 +78,7 @@ function extractData(res) {
 const vus = parseInt(__ENV.VUS || '200', 10);
 
 export const options = {
+  setupTimeout: '180s',
   scenarios: {
     // Phase 1: 대기열 동시 진입 스파이크 (오픈 직후 몰리는 상황)
     queue_spike: {
@@ -107,7 +108,8 @@ export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
   const queueImpl = __ENV.QUEUE_IMPL || '';
-  const ticketingBase = queueImpl ? `${baseUrl}/${queueImpl}` : baseUrl;
+  // go-ti.shop은 Cloudflare Workers가 SPA 서빙 → api.go-ti.shop 사용
+  const ticketingBase = queueImpl ? `https://api.go-ti.shop/${queueImpl}` : baseUrl;
 
   console.log(`=== 대기열 부하테스트: 방식 1 (junsang), Impl: ${queueImpl || '(none)'} ===`);
   console.log(`  API: ${baseUrl}`);
