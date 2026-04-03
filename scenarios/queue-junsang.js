@@ -13,11 +13,9 @@ import {
 /**
  * 대기열 부하테스트 — 구현 방식 1 (junsang): Redis Sorted Set + Scheduler.
  *
- * PR: https://github.com/Team-Ikujo/Goti-server/pull/312
- * 브랜치: poc/queue-waiting-junsang
- *
  * 플로우:
- *   회원가입 → validate(대기열 진입) → Polling(1초, status)
+ *   [setup] 회원가입 일괄 발급 (VU 수만큼)
+ *   [VU] validate(대기열 진입) → Polling(1초, status)
  *   → 순번 도달 → 예매 → complete(슬롯 반환)
  *
  * 실행: ./run.sh queue-junsang
@@ -34,7 +32,8 @@ const vus = parseInt(__ENV.VUS || '200', 10);
 const isSmoke = vus <= 5;
 
 export const options = {
-  setupTimeout: '180s',
+  setupTimeout: '300s',
+  insecureSkipTLSVerify: true,
   scenarios: {
     queue_spike: {
       executor: 'ramping-vus',
@@ -46,8 +45,8 @@ export const options = {
             { duration: '3s', target: 0 },
           ]
         : [
-            { duration: '30s', target: vus },
-            { duration: '9m', target: vus },
+            { duration: '10s', target: vus },
+            { duration: '3m', target: vus },
             { duration: '30s', target: 0 },
           ],
       gracefulRampDown: isSmoke ? '10s' : '60s',
@@ -67,25 +66,47 @@ export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
   const queueImpl = __ENV.QUEUE_IMPL || '(none)';
-  // ticketing-junsang은 /junsang prefix로 라우팅 (deploy/prod와 API 경로가 다름)
-  const ticketingUrl = `https://api.go-ti.shop/junsang`;
+  const ticketingUrl = `${baseUrl}/junsang`;
   console.log(`=== 대기열 부하테스트: 방식 1 (junsang) ===`);
   console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, Ticketing: ${ticketingUrl}, Impl: ${queueImpl}, VUs: ${vus}`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
-  return { ...testData, queueUrl, ticketingUrl };
+
+  // VU 토큰 일괄 발급
+  const tokens = [];
+  const totalUsers = vus;
+  console.log(`  토큰 일괄 발급 시작: ${totalUsers}명`);
+
+  for (let i = 0; i < totalUsers; i++) {
+    const uniqueId = runnerId * 1000000 + i + 1;
+    const result = signup(baseUrl, uniqueId, runnerId);
+    if (result) {
+      tokens.push({ token: result.token, userId: result.userId });
+    }
+    if ((i + 1) % 100 === 0) {
+      console.log(`  토큰 발급: ${i + 1}/${totalUsers} (성공: ${tokens.length})`);
+    }
+  }
+
+  console.log(`  토큰 발급 완료: ${tokens.length}/${totalUsers}`);
+  if (tokens.length === 0) {
+    console.error('  토큰 발급 전부 실패 — 테스트 중단');
+    return null;
+  }
+
+  return { ...testData, queueUrl, ticketingUrl, tokens };
 }
 
 export default function (data) {
-  if (!data) return;
-  const { baseUrl, runnerId } = getEnv();
-  const queueUrl = data.queueUrl;
-  const tUrl = data.ticketingUrl; // ticketing-junsang (/junsang prefix)
-  const uniqueId = runnerId * 1000000 + __VU * 10000 + __ITER;
+  if (!data || !data.tokens || data.tokens.length === 0) return;
 
-  const authResult = signup(baseUrl, uniqueId, runnerId);
-  if (!authResult) { metrics.ticketSuccess.add(false); return; }
-  const auth = authHeaders(authResult.token);
+  const queueUrl = data.queueUrl;
+  const tUrl = data.ticketingUrl;
+
+  // VU별로 고유 토큰 할당
+  const tokenIdx = (__VU - 1) % data.tokens.length;
+  const { token } = data.tokens[tokenIdx];
+  const auth = authHeaders(token);
 
   const e2eStart = Date.now();
 
@@ -93,7 +114,7 @@ export default function (data) {
   const queueResult = waitForQueuePass(queueUrl, data.gameId, auth);
   if (!queueResult) { metrics.ticketSuccess.add(false); sleep(3); return; }
 
-  // 예매 플로우: ticketing-junsang으로 라우팅 (/junsang prefix)
+  // 예매 플로우
   browseSeatGrades(tUrl, data.stadiumId, data.gameId, auth);
   const sections = browseSeatSections(tUrl, data.stadiumId, data.gameId, auth);
   browsePricingPolicy(tUrl, data.homeTeamId, auth);
@@ -125,7 +146,6 @@ export default function (data) {
   const payment = payOrder(tUrl, order.orderId, __VU, auth);
   const success = !!payment;
 
-  // 예매 완료 후 대기열 슬롯 반환
   if (success) queueComplete(queueUrl, data.gameId, auth);
 
   queueMetrics.e2eDuration.add(Date.now() - e2eStart);

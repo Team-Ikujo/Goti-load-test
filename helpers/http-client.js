@@ -3,6 +3,7 @@ import { check } from 'k6';
 
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
+  'Host': 'api.go-ti.shop',
 };
 
 function mergeHeaders(extra) {
