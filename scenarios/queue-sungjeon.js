@@ -42,18 +42,26 @@ function randomSeatCount() { return Math.floor(Math.random() * 4) + 1; }
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 const vus = parseInt(__ENV.VUS || '200', 10);
+const isSmoke = vus <= 5;
 
 export const options = {
+  setupTimeout: '180s',
   scenarios: {
     queue_spike: {
       executor: 'ramping-vus',
       startVUs: 0,
-      stages: [
-        { duration: '10s', target: vus },
-        { duration: '3m', target: vus },
-        { duration: '30s', target: 0 },
-      ],
-      gracefulRampDown: '60s',
+      stages: isSmoke
+        ? [
+            { duration: '2s', target: vus },
+            { duration: '30s', target: vus },
+            { duration: '3s', target: 0 },
+          ]
+        : [
+            { duration: '10s', target: vus },
+            { duration: '3m', target: vus },
+            { duration: '30s', target: 0 },
+          ],
+      gracefulRampDown: isSmoke ? '10s' : '60s',
     },
   },
   thresholds: {
@@ -82,7 +90,7 @@ export function setup() {
   const initOk = queueInit(queueUrl, testData.gameId, 100, adminAuth);
   console.log(`  queue init: ${initOk ? 'OK' : 'FAILED (이미 초기화됨)'}`);
 
-  const ticketingUrl = `${baseUrl}/sungjeon`;
+  const ticketingUrl = `https://api.go-ti.shop/sungjeon`;
   return { ...testData, queueUrl, ticketingUrl };
 }
 
