@@ -81,11 +81,14 @@ SCENARIO="${1:-smoke}"
 # port-forward 헬퍼
 if [ "$SCENARIO" = "port-forward" ]; then
   echo ""
+  CONTEXT="${K8S_CONTEXT:-goti-prod}"
+  MIMIR_SVC="${MIMIR_SVC:-mimir-prod-distributor}"
   echo "  Mimir Distributor port-forward 시작"
-  echo "  localhost:9009 → mimir-dev-distributor.monitoring.svc:8080"
+  echo "  localhost:9009 → ${MIMIR_SVC}.monitoring.svc:8080"
+  echo "  context: ${CONTEXT}"
   echo "  (Ctrl+C로 종료)"
   echo ""
-  kubectl port-forward -n monitoring svc/mimir-dev-distributor 9009:8080
+  kubectl port-forward -n monitoring --context "$CONTEXT" "svc/${MIMIR_SVC}" 9009:8080
   exit 0
 fi
 
