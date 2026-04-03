@@ -59,7 +59,7 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null, tick
   const homeTeamId = String(targetGame.homeTeamId);
 
   // 4. 좌석 구역 조회 → sectionId 목록
-  const ticketingUrl = ticketingPrefix ? `${baseUrl}${ticketingPrefix}` : baseUrl;
+  const ticketingUrl = ticketingPrefix ? `https://api.go-ti.shop${ticketingPrefix}` : baseUrl;
   const sectionsRes = get(
     `${ticketingUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/seat-sections?gameId=${gameId}`,
     auth
