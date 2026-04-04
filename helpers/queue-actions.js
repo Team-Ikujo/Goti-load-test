@@ -105,10 +105,10 @@ export function queueStatus(queueUrl, gameId, auth) {
  * @param {string} gameId       대상 경기 ID
  * @param {object} auth         인증 헤더
  * @param {number} [maxPolls=120] 최대 polling 횟수 (120 = 약 2분)
- * @param {number} [pollInterval=1] polling 간격 (초)
+ * @param {number} [pollInterval=2] polling 간격 (초)
  * @returns {{ token: string, waitMs: number, polls: number } | null}
  */
-export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 120, pollInterval = 1) {
+export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 120, pollInterval = 2) {
   const waitStart = Date.now();
 
   // Step 1: 대기열 진입
