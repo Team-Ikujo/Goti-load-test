@@ -43,49 +43,61 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
     console.warn(`setup: bulk 유저 생성 실패 (status=${bulkRes.status}) — VU에서 개별 signup fallback`);
   }
 
-  // 2. 경기 일정 조회
-  const gamesRes = get(`${baseUrl}/api/v1/games/schedules?today=false`, auth);
-  if (!checkStatus(gamesRes, 200, 'list game schedules')) {
-    console.error('setup: game schedules query failed');
-    return null;
-  }
+  // 2. 경기 선택
+  let gameId, stadiumId, homeTeamId, teamIds, ticketingStatus;
 
-  const games = JSON.parse(gamesRes.body);
-  const gameList = games.data || games;
-
-  if (!Array.isArray(gameList) || gameList.length === 0) {
-    console.error('setup: 경기 일정이 없습니다 — seed-kbo-games.sh를 먼저 실행하세요');
-    return null;
-  }
-
-  // 3. 경기 선택: GAME_ID 환경변수 > AVAILABLE 경기 > 첫 번째 경기
-  let targetGame = null;
-
-  if (gameIdOverride) {
-    targetGame = gameList.find((g) => String(g.gameId) === gameIdOverride);
-    if (!targetGame) {
-      console.error(`setup: GAME_ID=${gameIdOverride} 경기를 찾을 수 없습니다`);
+  if (gameIdOverride && __ENV.STADIUM_ID && __ENV.HOME_TEAM_ID) {
+    // GAME_ID + STADIUM_ID + HOME_TEAM_ID 모두 지정 시 경기 목록 조회 스킵 (47초 절약)
+    gameId = gameIdOverride;
+    stadiumId = __ENV.STADIUM_ID;
+    homeTeamId = __ENV.HOME_TEAM_ID;
+    teamIds = [homeTeamId];
+    ticketingStatus = 'AVAILABLE';
+    console.log(`setup: 환경변수 직접 지정 — gameId=${gameId}, stadium=${stadiumId}`);
+  } else {
+    // 경기 목록에서 조회 (auth 없이 — 공개 API)
+    const gamesRes = get(`${baseUrl}/api/v1/games/schedules?today=false`);
+    if (!checkStatus(gamesRes, 200, 'list game schedules')) {
+      console.error('setup: game schedules query failed');
       return null;
     }
-    console.log(`setup: 지정 경기 사용 — ${targetGame.homeTeamDisplayName} vs ${targetGame.awayTeamDisplayName}`);
-  } else {
-    targetGame = gameList.find((g) => g.ticketingStatus === 'AVAILABLE');
-    if (!targetGame) {
-      console.warn('setup: AVAILABLE 경기 없음 — 첫 번째 경기 사용 (점유/주문 실패 가능)');
-      targetGame = gameList[0];
-    } else {
-      console.log(`setup: AVAILABLE 경기 선택 — ${targetGame.homeTeamDisplayName} vs ${targetGame.awayTeamDisplayName}`);
+
+    const games = JSON.parse(gamesRes.body);
+    const gameList = games.data || games;
+
+    if (!Array.isArray(gameList) || gameList.length === 0) {
+      console.error('setup: 경기 일정이 없습니다 — seed-kbo-games.sh를 먼저 실행하세요');
+      return null;
     }
+
+    let targetGame = null;
+
+    if (gameIdOverride) {
+      targetGame = gameList.find((g) => String(g.gameId) === gameIdOverride);
+      if (!targetGame) {
+        console.error(`setup: GAME_ID=${gameIdOverride} 경기를 찾을 수 없습니다`);
+        return null;
+      }
+      console.log(`setup: 지정 경기 사용 — ${targetGame.homeTeamDisplayName} vs ${targetGame.awayTeamDisplayName}`);
+    } else {
+      targetGame = gameList.find((g) => g.ticketingStatus === 'AVAILABLE');
+      if (!targetGame) {
+        console.warn('setup: AVAILABLE 경기 없음 — 첫 번째 경기 사용 (점유/주문 실패 가능)');
+        targetGame = gameList[0];
+      } else {
+        console.log(`setup: AVAILABLE 경기 선택 — ${targetGame.homeTeamDisplayName} vs ${targetGame.awayTeamDisplayName}`);
+      }
+    }
+
+    gameId = String(targetGame.gameId);
+    stadiumId = String(targetGame.stadiumId);
+    homeTeamId = String(targetGame.homeTeamId);
+    ticketingStatus = targetGame.ticketingStatus;
+
+    teamIds = [...new Set(
+      gameList.slice(0, 20).flatMap((g) => [g.homeTeamId, g.awayTeamId]).filter(Boolean)
+    )].slice(0, 10).map(String);
   }
-
-  const gameId = String(targetGame.gameId);
-  const stadiumId = String(targetGame.stadiumId);
-  const homeTeamId = String(targetGame.homeTeamId);
-
-  // 4. 팀 ID 수집 (가격 정책/팀 조회용)
-  const teamIds = [...new Set(
-    gameList.slice(0, 20).flatMap((g) => [g.homeTeamId, g.awayTeamId]).filter(Boolean)
-  )].slice(0, 10).map(String);
 
   // NOTE: seat-grades, seat-sections는 queue 통과 + ReservationSession이 필요하므로
   //       setup()에서 호출하지 않는다. VU의 default function에서 queue 통과 후 동적으로 조회.
@@ -134,7 +146,7 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
     stadiumId,
     homeTeamId,
     teamIds,
-    ticketingStatus: targetGame.ticketingStatus,
+    ticketingStatus: ticketingStatus,
     adminToken: authResult.token,
     adminUserId: authResult.userId,
     tokens,
@@ -142,7 +154,7 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
 
   console.log(
     `setup: gameId=${gameId}, stadium=${stadiumId}, ` +
-    `teams=${teamIds.length}개, status=${targetGame.ticketingStatus}`
+    `teams=${teamIds.length}개, status=${ticketingStatus}`
   );
   return testData;
 }

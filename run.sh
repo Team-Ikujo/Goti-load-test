@@ -36,6 +36,8 @@ _CLI_START_TIME="${START_TIME-}"
 _CLI_TEST_NAME="${TEST_NAME-}"
 _CLI_QUEUE_URL="${QUEUE_URL-}"
 _CLI_QUEUE_IMPL="${QUEUE_IMPL-}"
+_CLI_STADIUM_ID="${STADIUM_ID-}"
+_CLI_HOME_TEAM_ID="${HOME_TEAM_ID-}"
 
 # config 파일 로드 (없으면 my-config.env.example → my-config.env 복사 안내)
 if [ -f "$CONFIG_FILE" ]; then
@@ -57,6 +59,8 @@ fi
 [ -n "$_CLI_TEST_NAME" ]     && TEST_NAME="$_CLI_TEST_NAME"
 [ -n "$_CLI_QUEUE_URL" ]     && QUEUE_URL="$_CLI_QUEUE_URL"
 [ -n "$_CLI_QUEUE_IMPL" ]    && QUEUE_IMPL="$_CLI_QUEUE_IMPL"
+[ -n "$_CLI_STADIUM_ID" ]    && STADIUM_ID="$_CLI_STADIUM_ID"
+[ -n "$_CLI_HOME_TEAM_ID" ]  && HOME_TEAM_ID="$_CLI_HOME_TEAM_ID"
 
 # 기본값 (어디에도 설정 안 된 항목만)
 RUNNER_ID="${RUNNER_ID:-0}"
@@ -71,6 +75,8 @@ MIMIR_PUSH_URL="${MIMIR_PUSH_URL:-}"
 START_TIME="${START_TIME:-}"
 QUEUE_URL="${QUEUE_URL:-}"
 QUEUE_IMPL="${QUEUE_IMPL:-}"
+STADIUM_ID="${STADIUM_ID:-}"
+HOME_TEAM_ID="${HOME_TEAM_ID:-}"
 
 # ---------------------------------------------------------------------------
 # 실행 (아래는 수정 불필요)
@@ -192,6 +198,8 @@ K6_ARGS=(
   -e DURATION="$DURATION"
   -e QUEUE_URL="$QUEUE_URL"
   -e QUEUE_IMPL="$QUEUE_IMPL"
+  -e STADIUM_ID="$STADIUM_ID"
+  -e HOME_TEAM_ID="$HOME_TEAM_ID"
   --tag runner="$RUNNER_NAME"
   --tag test_name="$TEST_NAME"
   --tag scenario="$SCENARIO"

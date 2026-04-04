@@ -34,6 +34,7 @@ const vus = parseInt(__ENV.VUS || '200', 10);
 const isSmoke = vus <= 5;
 
 export const options = {
+  insecureSkipTLSVerify: true,
   setupTimeout: '180s',
   scenarios: {
     queue_e2e: {
