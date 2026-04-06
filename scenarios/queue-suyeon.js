@@ -80,11 +80,9 @@ export const options = {
 export function setup() {
   const { baseUrl, runnerId, gameId } = getEnv();
   const queueUrl = __ENV.QUEUE_URL || baseUrl;
-  const queueImpl = __ENV.QUEUE_IMPL || '(none)';
-  // ticketing-suyeon은 /suyeon prefix로 라우팅 (deploy/prod와 API 경로가 다름)
-  const ticketingUrl = `https://api.go-ti.shop/suyeon`;
-  console.log(`=== 대기열 부하테스트: 방식 3 (suyeon) ===`);
-  console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, Ticketing: ${ticketingUrl}, Impl: ${queueImpl}, VUs: ${vus}`);
+  const ticketingUrl = __ENV.TICKETING_URL || baseUrl;
+  console.log(`=== 대기열 부하테스트 ===`);
+  console.log(`  API: ${baseUrl}, Queue: ${queueUrl}, Ticketing: ${ticketingUrl}, VUs: ${vus}`);
   const testData = setupTestData(baseUrl, runnerId, gameId);
   if (!testData) return null;
   return { ...testData, queueUrl, ticketingUrl };

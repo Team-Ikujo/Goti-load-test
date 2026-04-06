@@ -194,8 +194,8 @@ function browseTeam(teamIds) {
 }
 
 // 구역 선택: 좌석 등급 + 잔여석 (15%)
-function browseSeatGrades(stadiumId, gameId) {
-  apiGet(`/api/v1/stadium-seats/stadiums/${stadiumId}/games/${gameId}/seat-grades`);
+function browseSeatGrades(gameId) {
+  apiGet(`/api/v1/stadium-seats/games/${gameId}/seat-grades`);
 }
 
 // 구역 선택: 구역 목록 (10%)
@@ -241,7 +241,7 @@ export default function (testData) {
   } else if (roll < 35) {
     browseTeam(teamIds);
   } else if (roll < 50) {
-    browseSeatGrades(stadiumId, gameId);
+    browseSeatGrades(gameId);
   } else if (roll < 60) {
     browseSeatSections(stadiumId);
   } else if (roll < 65) {

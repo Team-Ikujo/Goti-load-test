@@ -40,6 +40,5 @@ export function getEnv() {
     runnerName: __ENV.RUNNER_NAME || `runner-${__ENV.RUNNER_ID || '0'}`,
     testName: __ENV.TEST_NAME || 'unnamed',
     gameId: __ENV.GAME_ID || null,
-    queueImpl: __ENV.QUEUE_IMPL || '',
   };
 }

@@ -58,7 +58,7 @@ export default function () {
 
   // 4. 좌석 등급 조회
   checkStatus(
-    get(`${baseUrl}/api/v1/stadium-seats/stadiums/${stadiumId}/games/${gameId}/seat-grades`, auth),
+    get(`${baseUrl}/api/v1/stadium-seats/games/${gameId}/seat-grades`, auth),
     200, 'seat grades'
   );
 

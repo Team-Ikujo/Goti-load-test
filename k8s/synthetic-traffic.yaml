@@ -203,7 +203,7 @@ data:
         }
       } else if (roll < 50) {
         // 구역 선택: 좌석 등급 (15%) → ticketing
-        apiGet(SVC.ticketing, '/api/v1/stadium-seats/stadiums/' + testData.stadiumId + '/games/' + testData.gameId + '/seat-grades', t);
+        apiGet(SVC.ticketing, '/api/v1/stadium-seats/games/' + testData.gameId + '/seat-grades', t);
       } else if (roll < 60) {
         // 구역 선택: 구역 목록 (10%) → ticketing
         apiGet(SVC.ticketing, '/api/v1/stadium-seats/stadiums/' + testData.stadiumId + '/seat-sections', t);
