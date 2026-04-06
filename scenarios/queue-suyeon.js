@@ -31,7 +31,19 @@ function randomSeatCount() { return Math.floor(Math.random() * 4) + 1; }
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 const vus = parseInt(__ENV.VUS || '200', 10);
+const duration = __ENV.DURATION || '10m';
 const isSmoke = vus <= 5;
+
+// duration 파싱 (예: '3m' → 180, '1h' → 3600)
+function parseDuration(d) {
+  const m = d.match(/^(\d+)(s|m|h)$/);
+  if (!m) return 600;
+  const v = parseInt(m[1], 10);
+  return m[2] === 'h' ? v * 3600 : m[2] === 'm' ? v * 60 : v;
+}
+const totalSec = parseDuration(duration);
+const rampSec = Math.min(30, Math.floor(totalSec * 0.1));
+const sustainSec = totalSec - rampSec * 2;
 
 export const options = {
   insecureSkipTLSVerify: true,
@@ -47,9 +59,9 @@ export const options = {
             { duration: '3s', target: 0 },
           ]
         : [
-            { duration: '30s', target: vus },
-            { duration: '9m', target: vus },
-            { duration: '30s', target: 0 },
+            { duration: `${rampSec}s`, target: vus },
+            { duration: `${sustainSec}s`, target: vus },
+            { duration: `${rampSec}s`, target: 0 },
           ],
       gracefulRampDown: isSmoke ? '10s' : '60s',
     },
