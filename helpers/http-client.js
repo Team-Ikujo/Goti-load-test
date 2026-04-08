@@ -5,6 +5,11 @@ const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+// HOST_HEADER 환경변수가 있으면 Host 헤더 자동 주입 (port-forward, SSH 터널 등)
+if (__ENV.HOST_HEADER) {
+  DEFAULT_HEADERS['Host'] = __ENV.HOST_HEADER;
+}
+
 function mergeHeaders(extra) {
   return Object.assign({}, DEFAULT_HEADERS, extra);
 }

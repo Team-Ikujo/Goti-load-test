@@ -37,6 +37,7 @@ _CLI_TEST_NAME="${TEST_NAME-}"
 _CLI_QUEUE_URL="${QUEUE_URL-}"
 _CLI_STADIUM_ID="${STADIUM_ID-}"
 _CLI_HOME_TEAM_ID="${HOME_TEAM_ID-}"
+_CLI_HOST_HEADER="${HOST_HEADER-}"
 
 # config 파일 로드 (없으면 my-config.env.example → my-config.env 복사 안내)
 if [ -f "$CONFIG_FILE" ]; then
@@ -59,6 +60,7 @@ fi
 [ -n "$_CLI_QUEUE_URL" ]     && QUEUE_URL="$_CLI_QUEUE_URL"
 [ -n "$_CLI_STADIUM_ID" ]    && STADIUM_ID="$_CLI_STADIUM_ID"
 [ -n "$_CLI_HOME_TEAM_ID" ]  && HOME_TEAM_ID="$_CLI_HOME_TEAM_ID"
+[ -n "$_CLI_HOST_HEADER" ]   && HOST_HEADER="$_CLI_HOST_HEADER"
 
 # 기본값 (어디에도 설정 안 된 항목만)
 RUNNER_ID="${RUNNER_ID:-0}"
@@ -74,6 +76,7 @@ START_TIME="${START_TIME:-}"
 QUEUE_URL="${QUEUE_URL:-}"
 STADIUM_ID="${STADIUM_ID:-}"
 HOME_TEAM_ID="${HOME_TEAM_ID:-}"
+HOST_HEADER="${HOST_HEADER:-}"
 
 # ---------------------------------------------------------------------------
 # 실행 (아래는 수정 불필요)
@@ -144,6 +147,7 @@ echo "  경기 ID:     ${GAME_ID:-자동 선택}"
 echo "  VUS:         $VUS"
 echo "  URL:         $BASE_URL"
 echo "  Mimir Push:  $PUSH_METRICS"
+[ -n "$HOST_HEADER" ]       && echo "  Host 헤더:   $HOST_HEADER"
 [ -n "$QUEUE_URL" ]         && echo "  Queue URL:   $QUEUE_URL"
 [ "$SCENARIO" = "spike" ]  && echo "  MAX_RATE:    $MAX_RATE rps"
 [ "$SCENARIO" = "soak" ]   && echo "  DURATION:    $DURATION"
@@ -195,6 +199,7 @@ K6_ARGS=(
   -e QUEUE_URL="$QUEUE_URL"
   -e STADIUM_ID="$STADIUM_ID"
   -e HOME_TEAM_ID="$HOME_TEAM_ID"
+  -e HOST_HEADER="$HOST_HEADER"
   --tag runner="$RUNNER_NAME"
   --tag test_name="$TEST_NAME"
   --tag scenario="$SCENARIO"
