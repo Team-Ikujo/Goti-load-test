@@ -109,8 +109,9 @@ case "$SCENARIO" in
   queue-suyeon-spike)      FILE="scenarios/queue-suyeon-spike.js" ;;
   queue-suyeon-saturation) FILE="scenarios/queue-suyeon-saturation.js" ;;
   queue-suyeon-heartbeat)  FILE="scenarios/queue-suyeon-heartbeat.js" ;;
+  queue-oneshot)           FILE="scenarios/queue-oneshot.js" ;;
   *)
-    echo "사용법: $0 {smoke|e2e|spike|normal|soak|queue-suyeon*|port-forward}"
+    echo "사용법: $0 {smoke|e2e|spike|normal|soak|queue-suyeon*|queue-oneshot|port-forward}"
     echo ""
     echo "  smoke                   — API 정상 응답 확인 (1 VU, 1회)"
     echo "  e2e                     — 혼합 시나리오 부하 (조회+예매+취소+경합)"
@@ -121,6 +122,7 @@ case "$SCENARIO" in
     echo "  queue-suyeon-spike      — 대기열만 스파이크 (예매 X)"
     echo "  queue-suyeon-saturation — 대기열 포화 (수용 초과)"
     echo "  queue-suyeon-heartbeat  — Polling 스트레스 (Redis 부하)"
+    echo "  queue-oneshot             — 대기열 원샷 (1인 1회, 대규모 동시접속)"
     echo "  port-forward            — Mimir port-forward (메트릭 Push용)"
     exit 1
     ;;
