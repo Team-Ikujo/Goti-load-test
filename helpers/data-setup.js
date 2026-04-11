@@ -34,7 +34,7 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
   const bulkRes = post(`${baseUrl}/api/v1/test/users/bulk`, {
     startIndex: startIndex,
     count: Math.min(vus + 10, 10000),
-  });
+  }, { tags: { name: 'POST /test/users/bulk' } });
   if (bulkRes.status === 200) {
     const bulkData = JSON.parse(bulkRes.body);
     const d = bulkData.data || bulkData;
@@ -109,6 +109,9 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
   let loginSuccess = 0;
   let loginFail = 0;
 
+  const batchHeaders = { 'Content-Type': 'application/json' };
+  if (__ENV.HOST_HEADER) batchHeaders['Host'] = __ENV.HOST_HEADER;
+
   for (let start = 1; start <= totalVus; start += batchSize) {
     const end = Math.min(start + batchSize, totalVus + 1);
     const requests = [];
@@ -119,7 +122,7 @@ export function setupTestData(baseUrl, runnerId = 0, gameIdOverride = null) {
         method: 'POST',
         url: `${baseUrl}/api/v1/test/users/login`,
         body: JSON.stringify({ mobile }),
-        params: { headers: { 'Content-Type': 'application/json' }, tags: { name: 'POST /test/users/login (batch)' } },
+        params: { headers: batchHeaders, tags: { name: 'POST /test/users/login (batch)' } },
       });
     }
 
