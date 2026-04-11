@@ -134,17 +134,15 @@ export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 150, pollInt
   const firstStatus = queueStatus(queueUrl, gameId, auth);
   if (firstStatus && queueNumber <= firstStatus.publishedRank) {
     const seatResult = queueSeatEnter(queueUrl, gameId, queueToken, auth);
-    if (!seatResult || !seatResult.enterAllowed) {
-      queueMetrics.passRate.add(false);
-      return null;
+    if (seatResult && seatResult.enterAllowed) {
+      const waitMs = Date.now() - waitStart;
+      queueMetrics.immediatePassRate.add(true);
+      queueMetrics.passRate.add(true);
+      queueMetrics.waitDuration.add(waitMs);
+      queueMetrics.pollCount.add(0);
+      return { queueToken, waitMs, polls: 0 };
     }
-
-    const waitMs = Date.now() - waitStart;
-    queueMetrics.immediatePassRate.add(true);
-    queueMetrics.passRate.add(true);
-    queueMetrics.waitDuration.add(waitMs);
-    queueMetrics.pollCount.add(0);
-    return { queueToken, waitMs, polls: 0 };
+    // 409 — 슬롯 풀, polling으로 진입
   }
 
   queueMetrics.immediatePassRate.add(false);
@@ -159,18 +157,17 @@ export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 150, pollInt
     if (!status) continue;
 
     if (queueNumber <= status.publishedRank) {
-      // 순번 도달 → seat-enter
+      // 순번 도달 → seat-enter (409 시 슬롯 대기 후 재시도)
       const seatResult = queueSeatEnter(queueUrl, gameId, queueToken, auth);
-      if (!seatResult || !seatResult.enterAllowed) {
-        queueMetrics.passRate.add(false);
-        return null;
+      if (seatResult && seatResult.enterAllowed) {
+        const waitMs = Date.now() - waitStart;
+        queueMetrics.passRate.add(true);
+        queueMetrics.waitDuration.add(waitMs);
+        queueMetrics.pollCount.add(polls);
+        return { queueToken, waitMs, polls };
       }
-
-      const waitMs = Date.now() - waitStart;
-      queueMetrics.passRate.add(true);
-      queueMetrics.waitDuration.add(waitMs);
-      queueMetrics.pollCount.add(polls);
-      return { queueToken, waitMs, polls };
+      // 409 (슬롯 풀) — 포기하지 않고 다음 polling에서 재시도
+      continue;
     }
 
     if (polls % 15 === 0) {
