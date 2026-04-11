@@ -80,7 +80,7 @@ export default function () {
 
   // 7. 좌석 상태 조회
   console.log(`\n--- Step 7: 좌석 상태 조회 ---`);
-  const seatsRes = get(`${baseUrl}/api/v1/stadium-seats/games/${gameId}/sections/${sectionId}/seats`, { ...auth, tags: { name: 'seat-status' } });
+  const seatsRes = get(`${baseUrl}/api/v1/game-seats/${gameId}/sections/${sectionId}/seat-statuses`, { ...auth, tags: { name: 'seat-statuses' } });
   console.log(`  status=${seatsRes.status} body=${seatsRes.body ? seatsRes.body.substring(0, 500) : 'empty'}`);
   if (seatsRes.status !== 200) { console.error('FAIL: seat-status'); return; }
   const seatsData = JSON.parse(seatsRes.body);
@@ -92,7 +92,7 @@ export default function () {
   // 8. 좌석 점유 (hold)
   console.log(`\n--- Step 8: 좌석 점유 (hold) ---`);
   const seat = available[0];
-  const holdRes = post(`${baseUrl}/api/v1/stadium-seats/games/${gameId}/seats/${seat.seatId}/hold`, {}, { ...auth, tags: { name: 'seat-hold' } });
+  const holdRes = post(`${baseUrl}/api/v1/seat-reservations/seats/${seat.seatId}`, { gameId, queueTokenJti: `debug-${Date.now()}` }, { ...auth, tags: { name: 'seat-hold' } });
   console.log(`  status=${holdRes.status} body=${holdRes.body ? holdRes.body.substring(0, 300) : 'empty'}`);
   if (holdRes.status !== 200) { console.error('FAIL: seat-hold'); return; }
   const holdData = JSON.parse(holdRes.body);
@@ -101,7 +101,13 @@ export default function () {
 
   // 9. 주문 생성
   console.log(`\n--- Step 9: 주문 생성 ---`);
-  const orderRes = post(`${baseUrl}/api/v1/orders`, { gameId, holdIds: [holdId] }, { ...auth, tags: { name: 'create-order' } });
+  const orderRes = post(`${baseUrl}/api/v1/orders`, {
+    gameId,
+    holdIds: [String(holdId)],
+    ordererName: 'K6-Debug',
+    ordererPhone: '01012340001',
+    ordererEmail: 'k6-debug@goti.test',
+  }, { ...auth, tags: { name: 'create-order' } });
   console.log(`  status=${orderRes.status} body=${orderRes.body ? orderRes.body.substring(0, 500) : 'empty'}`);
   if (orderRes.status !== 200 && orderRes.status !== 201) { console.error('FAIL: create-order'); return; }
   const orderData = JSON.parse(orderRes.body);
@@ -110,7 +116,7 @@ export default function () {
 
   // 10. 결제
   console.log(`\n--- Step 10: 결제 ---`);
-  const payRes = post(`${baseUrl}/api/v1/payments`, { orderId }, { ...auth, tags: { name: 'pay-order' } });
+  const payRes = post(`${baseUrl}/api/v1/payments/orders/${orderId}`, { paymentMethod: 'CARD', idempotencyKey: `debug-pay-${Date.now()}` }, { ...auth, tags: { name: 'pay-order' } });
   console.log(`  status=${payRes.status} body=${payRes.body ? payRes.body.substring(0, 500) : 'empty'}`);
   if (payRes.status !== 200 && payRes.status !== 201) { console.error('FAIL: payment'); return; }
 
