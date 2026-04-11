@@ -81,7 +81,7 @@ export function browseTeam(baseUrl, teamIds, auth) {
 }
 
 export function browseSeatGrades(baseUrl, stadiumId, gameId, auth) {
-  get(`${baseUrl}/api/v1/stadium-seats/games/${gameId}/seat-grades`, {
+  get(`${baseUrl}/api/v1/stadium-seats/games/${gameId}/seat-grades?forceNewSession=true`, {
     ...auth, tags: { name: 'GET /seat-grades' },
   });
 }
