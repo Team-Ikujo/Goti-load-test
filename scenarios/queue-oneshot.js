@@ -121,7 +121,7 @@ export default function (data) {
   const holdIds = [];
   const shuffled = available.sort(() => Math.random() - 0.5);
   for (let i = 0; i < Math.min(wantCount, shuffled.length); i++) {
-    const hid = holdSeat(tUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth);
+    const hid = holdSeat(tUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth, queueResult.queueToken);
     if (hid) holdIds.push(hid);
   }
   if (holdIds.length === 0) { metrics.ticketSuccess.add(false); return; }

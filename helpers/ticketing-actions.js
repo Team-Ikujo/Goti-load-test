@@ -119,8 +119,8 @@ export function browseSeatStatus(baseUrl, gameId, sectionId, auth) {
 }
 
 // --- 좌석 점유 ---
-export function holdSeat(baseUrl, seatId, gameId, vuId, iterId, auth) {
-  const queueTokenJti = `k6-${vuId}-${iterId}-${Date.now()}`;
+export function holdSeat(baseUrl, seatId, gameId, vuId, iterId, auth, queueToken) {
+  const queueTokenJti = queueToken || `k6-${vuId}-${iterId}-${Date.now()}`;
   const res = post(
     `${baseUrl}/api/v1/seat-reservations/seats/${seatId}`,
     { gameId, queueTokenJti },

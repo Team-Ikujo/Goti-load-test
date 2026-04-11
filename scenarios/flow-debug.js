@@ -92,7 +92,7 @@ export default function () {
   // 8. 좌석 점유 (hold)
   console.log(`\n--- Step 8: 좌석 점유 (hold) ---`);
   const seat = available[0];
-  const holdRes = post(`${baseUrl}/api/v1/seat-reservations/seats/${seat.seatId}`, { gameId, queueTokenJti: `debug-${Date.now()}` }, { ...auth, tags: { name: 'seat-hold' } });
+  const holdRes = post(`${baseUrl}/api/v1/seat-reservations/seats/${seat.seatId}`, { gameId, queueTokenJti: queueToken }, { ...auth, tags: { name: 'seat-hold' } });
   console.log(`  status=${holdRes.status} body=${holdRes.body ? holdRes.body.substring(0, 300) : 'empty'}`);
   if (holdRes.status !== 200) { console.error('FAIL: seat-hold'); return; }
   const holdData = JSON.parse(holdRes.body);
