@@ -132,7 +132,7 @@ export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 150, pollInt
 
   // Step 2: 첫 상태 확인 — 즉시 입장 가능한지
   const firstStatus = queueStatus(queueUrl, gameId, auth);
-  if (firstStatus && queueNumber <= firstStatus.publishedRank) {
+  if (firstStatus && queueNumber <= firstStatus.publishedRank && firstStatus.availableSlots > 0) {
     const seatResult = queueSeatEnter(queueUrl, gameId, queueToken, auth);
     if (seatResult && seatResult.enterAllowed) {
       const waitMs = Date.now() - waitStart;
@@ -142,12 +142,14 @@ export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 150, pollInt
       queueMetrics.pollCount.add(0);
       return { queueToken, waitMs, polls: 0 };
     }
-    // 409 — 슬롯 풀, polling으로 진입
   }
 
   queueMetrics.immediatePassRate.add(false);
 
-  // Step 3: Polling 대기 (Heartbeat 없음 — polling만)
+  // Step 3: Polling 대기 — 프론트 흐름과 동일
+  //   1. global-status polling (2초 간격)
+  //   2. 내 순번(queueNumber) <= publishedRank 이고 availableSlots > 0 일 때만 seat-enter 시도
+  //   3. seat-enter 실패(409 등) → 다시 polling으로 돌아감
   let polls = 0;
   while (polls < maxPolls) {
     sleep(pollInterval);
@@ -156,8 +158,8 @@ export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 150, pollInt
     const status = queueStatus(queueUrl, gameId, auth);
     if (!status) continue;
 
-    if (queueNumber <= status.publishedRank) {
-      // 순번 도달 → seat-enter (409 시 슬롯 대기 후 재시도)
+    // 순번 도달 + 슬롯 여유 있을 때만 seat-enter 시도 (불필요한 409 방지)
+    if (queueNumber <= status.publishedRank && status.availableSlots > 0) {
       const seatResult = queueSeatEnter(queueUrl, gameId, queueToken, auth);
       if (seatResult && seatResult.enterAllowed) {
         const waitMs = Date.now() - waitStart;
@@ -166,7 +168,7 @@ export function waitForQueuePass(queueUrl, gameId, auth, maxPolls = 150, pollInt
         queueMetrics.pollCount.add(polls);
         return { queueToken, waitMs, polls };
       }
-      // 409 (슬롯 풀) — 포기하지 않고 다음 polling에서 재시도
+      // seat-enter 실패 → 다시 polling (프론트의 setPhase('waiting')과 동일)
       continue;
     }
 
