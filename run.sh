@@ -190,8 +190,12 @@ if [ -n "$START_TIME" ]; then
 fi
 
 # K6 실행 옵션 조립
+# USER_AGENT: Cloudflare WAF/봇탐지 우회용 브라우저 UA. 미설정 시 k6 기본 'k6/0.56.0' (차단 위험).
+USER_AGENT="${USER_AGENT:-Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36}"
+
 K6_ARGS=(
   "${SCRIPT_DIR}/${FILE}"
+  --user-agent "$USER_AGENT"
   -e RUNNER_ID="$RUNNER_ID"
   -e RUNNER_NAME="$RUNNER_NAME"
   -e TEST_NAME="$TEST_NAME"
