@@ -80,10 +80,10 @@ export default function () {
     );
   }
 
-  // 6. 주문 목록 조회
+  // 6. 구매 내역 조회 — 실제 프론트 마이페이지가 호출하는 경로 (payment → ticketing 체인 검증)
   checkStatus(
-    get(`${baseUrl}/api/v1/orders/internal?memberId=${authResult.userId}&months=3`, auth),
-    200, 'orders'
+    get(`${baseUrl}/api/v1/payments/purchases?months=3`, auth),
+    200, 'purchases'
   );
 
   // 7. 오늘 경기 조회
