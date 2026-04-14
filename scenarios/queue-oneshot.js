@@ -102,40 +102,46 @@ export default function (data) {
   const queueResult = waitForQueuePass(queueUrl, data.gameId, auth);
   if (!queueResult) { metrics.ticketSuccess.add(false); return; }
 
-  // 예매 플로우
-  browseSeatGrades(tUrl, data.stadiumId, data.gameId, auth);
-  const sections = browseSeatSections(tUrl, data.stadiumId, data.gameId, auth);
-  browsePricingPolicy(tUrl, data.homeTeamId, auth);
-  thinkBrowse();
+  // 대기열 통과 이후 모든 경로에서 반드시 queueLeave 호출.
+  // 이전 버전 버그: 실패 시 (order timeout 등) queueLeave 누락 → admitted slot이
+  // admitted_ttl_sec(기본 900s) 만료까지 점유 → 대기열 drain rate 극감.
+  let success = false;
+  try {
+    // 예매 플로우
+    browseSeatGrades(tUrl, data.stadiumId, data.gameId, auth);
+    const sections = browseSeatSections(tUrl, data.stadiumId, data.gameId, auth);
+    browsePricingPolicy(tUrl, data.homeTeamId, auth);
+    thinkBrowse();
 
-  if (!sections || sections.length === 0) { metrics.ticketSuccess.add(false); return; }
-  const sectionId = pickRandom(sections);
-  const seats = browseSeatStatus(tUrl, data.gameId, sectionId, auth);
-  if (!Array.isArray(seats)) { metrics.ticketSuccess.add(false); return; }
-  const available = seats.filter((s) => s.status === 'AVAILABLE');
-  if (available.length === 0) { metrics.ticketSuccess.add(false); return; }
+    if (!sections || sections.length === 0) return;
+    const sectionId = pickRandom(sections);
+    const seats = browseSeatStatus(tUrl, data.gameId, sectionId, auth);
+    if (!Array.isArray(seats)) return;
+    const available = seats.filter((s) => s.status === 'AVAILABLE');
+    if (available.length === 0) return;
 
-  thinkSeatSelect();
+    thinkSeatSelect();
 
-  const wantCount = randomSeatCount();
-  const holdIds = [];
-  const shuffled = available.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < Math.min(wantCount, shuffled.length); i++) {
-    const hid = holdSeat(tUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth, queueResult.queueToken);
-    if (hid) holdIds.push(hid);
+    const wantCount = randomSeatCount();
+    const holdIds = [];
+    const shuffled = available.sort(() => Math.random() - 0.5);
+    for (let i = 0; i < Math.min(wantCount, shuffled.length); i++) {
+      const hid = holdSeat(tUrl, shuffled[i].seatId, data.gameId, __VU, __ITER, auth, queueResult.queueToken);
+      if (hid) holdIds.push(hid);
+    }
+    if (holdIds.length === 0) return;
+
+    thinkOrderForm();
+    const order = createOrder(tUrl, data.gameId, holdIds, __VU, auth);
+    if (!order) return;
+
+    thinkPayment();
+    const payment = payOrder(tUrl, order.orderId, __VU, auth);
+    success = !!payment;
+  } finally {
+    // 성공/실패 무관 queueLeave — slot 즉시 반환. admitted_ttl 기다리지 않음.
+    queueLeave(queueUrl, data.gameId, auth);
+    queueMetrics.e2eDuration.add(Date.now() - e2eStart);
+    metrics.ticketSuccess.add(success);
   }
-  if (holdIds.length === 0) { metrics.ticketSuccess.add(false); return; }
-
-  thinkOrderForm();
-  const order = createOrder(tUrl, data.gameId, holdIds, __VU, auth);
-  if (!order) { metrics.ticketSuccess.add(false); return; }
-
-  thinkPayment();
-  const payment = payOrder(tUrl, order.orderId, __VU, auth);
-  const success = !!payment;
-
-  if (success) queueLeave(queueUrl, data.gameId, auth);
-
-  queueMetrics.e2eDuration.add(Date.now() - e2eStart);
-  metrics.ticketSuccess.add(success);
 }
