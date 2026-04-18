@@ -30,23 +30,25 @@ cp my-config.env.example my-config.env
 
 > 📦 **이전 시나리오 정리**: `smoke`, `e2e`, `spike`, `normal`, `soak`, `queue-suyeon*`, `flow-debug`, `synthetic-traffic` 는 더 이상 유지하지 않습니다. 기존 파일이 `scenarios/` 에 남아 있으면 수동으로 삭제하거나 `scenarios/_deprecated/` 로 이동하세요. `run.sh` 의 case 분기에서도 제거됨.
 
-## 분산 실행 (팀원 4명 동시)
+## 분산 실행 (팀원 4명 동시 — queue-oneshot 기준)
 
-각자 PC에서 서로 다른 `RUNNER_ID`로 동시 실행:
+각자 PC에서 서로 다른 `RUNNER_ID`로 동시 실행. `queue-oneshot` 은 `RUNNER_ID` 에 따라 mobile 번호가 분리되므로 충돌 없음:
 
 ```bash
-# 1번 팀원
-./run.sh e2e    # my-config.env: RUNNER_ID=0
+# 1번 팀원 — my-config.env: RUNNER_ID=0
+./run.sh queue-oneshot
 
-# 2번 팀원
-./run.sh e2e    # my-config.env: RUNNER_ID=1
+# 2번 팀원 — my-config.env: RUNNER_ID=1
+./run.sh queue-oneshot
 
-# 3번 팀원
-./run.sh e2e    # my-config.env: RUNNER_ID=2
+# 3번 팀원 — my-config.env: RUNNER_ID=2
+./run.sh queue-oneshot
 
-# 4번 팀원
-./run.sh e2e    # my-config.env: RUNNER_ID=3
+# 4번 팀원 — my-config.env: RUNNER_ID=3
+./run.sh queue-oneshot
 ```
+
+> `multicloud-readonly` 는 인증 불필요 read-only 라 runner 분리 의미 없음. 단독 실행 권장.
 
 동시 시작이 필요하면 `START_TIME` 설정:
 
@@ -59,22 +61,23 @@ START_TIME=18:00:00
 
 `my-config.env`에서 조정 가능한 값:
 
-| 변수 | 기본값 | 설명 |
-|------|--------|------|
-| `RUNNER_ID` | 0 | 러너 번호 (0~3) |
-| `RUNNER_NAME` | runner-0 | 대시보드 표시 이름 |
-| `GAME_ID` | (자동 선택) | 타겟 경기 ID |
-| `VUS` | 20 | 동시 사용자 수 |
-| `BASE_URL` | https://your-api-url | API URL |
-| `PUSH_METRICS` | false | Mimir로 메트릭 Push |
-| `MAX_RATE` | 200 | 스파이크 최대 RPS |
-| `DURATION` | 1h | Soak 지속 시간 |
-| `START_TIME` | (즉시 시작) | 동시 시작 시각 (예: 18:00:00) |
+| 변수 | 기본값 | 설명 | 사용 시나리오 |
+|------|--------|------|---------------|
+| `RUNNER_ID` | 0 | 러너 번호 (0~3) | queue-oneshot |
+| `RUNNER_NAME` | runner-0 | 대시보드 표시 이름 | 공통 |
+| `GAME_ID` | (자동 선택) | 타겟 경기 ID (AVAILABLE 자동 선택) | queue-oneshot |
+| `VUS` | 20 | 동시 사용자 수 (multicloud-readonly 기본 5) | 공통 |
+| `DURATION` | 1h | 지속 시간 (multicloud-readonly 기본 2m) | multicloud-readonly |
+| `BASE_URL` | — | API URL. Cloudflare 경유는 `https://go-ti.shop`, ALB 직접은 `ENV=prod-alb` | 공통 |
+| `PUSH_METRICS` | false | Mimir 로 k6 메트릭 Push | 공통 |
+| `MIMIR_PUSH_URL` | — | Mimir push endpoint (port-forward 시 `http://localhost:9009/api/v1/push`) | 공통 |
+| `START_TIME` | (즉시 시작) | 동시 시작 시각 (예: `18:00:00`) | queue-oneshot 분산 실행 |
 
 CLI 환경변수가 config 파일보다 우선합니다:
 
 ```bash
-VUS=50 ./run.sh e2e
+VUS=50 ./run.sh queue-oneshot
+DURATION=5m VUS=10 ./run.sh multicloud-readonly
 ```
 
 ## Mimir 메트릭 Push
@@ -95,12 +98,13 @@ MIMIR_PUSH_URL=https://your-api-url/mimir/api/v1/push
 ├── dashboards/
 │   └── k6-load-test.json   # Grafana 대시보드
 ├── helpers/
-│   ├── auth.js             # 회원가입/로그인
-│   ├── data-setup.js       # 테스트 데이터 셋업
-│   ├── http-client.js      # HTTP 래퍼 (헤더, 로깅)
-│   └── ticketing-actions.js # 티켓팅 액션 (예매, 취소, 경합)
+│   ├── auth.js              # 회원가입/로그인 (queue-oneshot 용)
+│   ├── data-setup.js        # 테스트 데이터 셋업 (queue-oneshot 용)
+│   ├── http-client.js       # HTTP 래퍼 (헤더, 로깅)
+│   ├── queue-actions.js     # 대기열 enter/leave (queue-oneshot 용)
+│   └── ticketing-actions.js # 티켓팅 액션 (queue-oneshot 용)
 ├── k8s/
-│   └── synthetic-traffic.yaml  # CronJob 설정
+│   └── synthetic-traffic.yaml  # (이전 CronJob 잔재, 사용 안 함)
 ├── scenarios/
 │   ├── queue-oneshot.js          # 대기열→예매 원샷 (운영)
 │   ├── multicloud-readonly.js    # 멀티클라우드 read-only (ADR-0018 Phase B, 운영)
