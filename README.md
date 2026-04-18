@@ -17,19 +17,18 @@ cp my-config.env.example my-config.env
 #    RUNNER_NAME: 본인 이름
 
 # 3. 실행
-./run.sh smoke    # API 정상 확인
-./run.sh e2e      # 혼합 시나리오 부하
+./run.sh queue-oneshot          # 대기열→예매 E2E (대규모 동시접속)
+./run.sh multicloud-readonly    # 멀티클라우드 read-only 관측 (ADR-0018 Phase B)
 ```
 
-## 시나리오
+## 시나리오 (2026-04-18 정리: 운영 중인 2개만)
 
 | 시나리오 | 명령 | 설명 |
 |----------|------|------|
-| **smoke** | `./run.sh smoke` | API 정상 응답 확인 (1 VU, 1회) |
-| **e2e** | `./run.sh e2e` | 혼합 시나리오 부하 (조회 35% + 예매 25% + 취소 10% + 경합 10% + ...) |
-| **spike** | `./run.sh spike` | 티켓 오픈 급증 시뮬레이션 (10→200→100→20 rps) |
-| **normal** | `./run.sh normal` | 평시 트래픽 시뮬레이션 (10분, 30→80→80→30 VU) |
-| **soak** | `./run.sh soak` | 장시간 안정성 검증 (기본 1시간, 메모리/커넥션 누수 감지) |
+| **queue-oneshot** | `./run.sh queue-oneshot` | 1인 1회 전체 플로우 (대기열 → 좌석 → 주문 → 결제 → leave). `per-vu-iterations` 로 티켓 오픈 시 대규모 동시접속 시뮬. |
+| **multicloud-readonly** | `./run.sh multicloud-readonly` | CF Worker 로 AWS/GCP 양쪽 분배되는 read-only endpoint 4종 호출 (schedules/today, schedules/team, team, stadium). AWS RDS `read_only=on` 상태에서도 에러 없이 Grafana cluster 별 p95 비교. |
+
+> 📦 **이전 시나리오 정리**: `smoke`, `e2e`, `spike`, `normal`, `soak`, `queue-suyeon*`, `flow-debug`, `synthetic-traffic` 는 더 이상 유지하지 않습니다. 기존 파일이 `scenarios/` 에 남아 있으면 수동으로 삭제하거나 `scenarios/_deprecated/` 로 이동하세요. `run.sh` 의 case 분기에서도 제거됨.
 
 ## 분산 실행 (팀원 4명 동시)
 
@@ -103,12 +102,9 @@ MIMIR_PUSH_URL=https://your-api-url/mimir/api/v1/push
 ├── k8s/
 │   └── synthetic-traffic.yaml  # CronJob 설정
 ├── scenarios/
-│   ├── smoke.js            # 스모크 테스트
-│   ├── e2e-ticketing.js    # E2E 혼합 시나리오
-│   ├── spike-ticketing.js  # 스파이크 테스트
-│   ├── normal-load.js      # 일반 부하
-│   ├── soak-stability.js   # 장시간 안정성
-│   └── synthetic-traffic.js # 합성 트래픽 (CronJob용)
+│   ├── queue-oneshot.js          # 대기열→예매 원샷 (운영)
+│   ├── multicloud-readonly.js    # 멀티클라우드 read-only (ADR-0018 Phase B, 운영)
+│   └── _deprecated/              # (이관 예정) 2026-04-18 정리 이전 시나리오들
 ├── run.sh                  # 실행 스크립트
 ├── my-config.env.example   # 설정 템플릿
 └── my-config.env           # 개인 설정 (gitignore)
@@ -220,24 +216,24 @@ HOME_TEAM_ID=e5f58f8c-fcde-4017-8033-d8deb34fd4a2
 
 ---
 
-### Case A — 로컬에서 smoke (빠른 검증, API 정상 응답만)
+### Case A — 멀티클라우드 read-only 관측 (Phase B 시연)
+
+CF Worker → AWS EKS + GCP GKE 양쪽 분배 확인. 에러 없이 Grafana 대시보드 읽기 비교.
 
 ```bash
 # my-config.env
 RUNNER_ID=0
 RUNNER_NAME=kimhj
-VUS=1
-BASE_URL=https://api.go-ti.shop
-GAME_ID=a5cdd8b5-8d93-4751-a0dd-a02de19849ee
-STADIUM_ID=4553f1c7-f5c1-468f-8ac9-f4883eb59ebc
-HOME_TEAM_ID=e5f58f8c-fcde-4017-8033-d8deb34fd4a2
+VUS=5
+DURATION=2m
+BASE_URL=https://go-ti.shop
 PUSH_METRICS=false
 ```
 실행:
 ```bash
-./run.sh smoke                 # scenarios/smoke.js (1 VU)
-./run.sh flow-debug           # 단일 VU 전체 플로우 디버그 로그
+./run.sh multicloud-readonly
 ```
+ℹ️ 사전 체크: AWS EKS 기동, pglogical subscription `replicating` 상태 (`docs/load-test/2026-04-18-multicloud-readonly-smoke.md` 참조).
 
 ---
 
@@ -262,7 +258,7 @@ MIMIR_PUSH_URL=http://localhost:9009/api/v1/push   # 별도 터미널: ./run.sh 
 실행:
 ```bash
 ./run.sh port-forward &        # 1) Mimir port-forward
-./run.sh queue-suyeon          # 2) 메인 부하
+./run.sh queue-oneshot         # 2) 메인 부하 (원샷: 1인 1회)
 ```
 ℹ️ `ENV=prod-alb` 지정 시 `BASE_URL`/`HOST_HEADER`는 `config/environments.js`가 자동 주입.
 ℹ️ k6 CLI 직접 호출 시에는 `--insecure-skip-tls-verify` 추가 필요 (run.sh는 자동).
@@ -288,7 +284,7 @@ MIMIR_PUSH_URL=http://localhost:9009/api/v1/push
 실행:
 ```bash
 ./run.sh port-forward &
-./run.sh queue-suyeon
+./run.sh queue-oneshot         # 원샷 경로 (이전 queue-suyeon 대체)
 ```
 ⚠️ **Cloudflare Rate Limit 주의**: 단일 IP로 대량 요청 시 HTTP 429 (error code 1015). 테스트 IP를 WAF `allow` 룰에 먼저 추가. 위 "Cloudflare Rate Limit" 섹션 참조.
 
@@ -319,7 +315,7 @@ MIMIR_PUSH_URL=http://localhost:9009/api/v1/push
 실행 (각 EC2에서):
 ```bash
 cd ~/goti-load-test && git pull
-./run.sh queue-suyeon           # START_TIME까지 sleep 후 일제히 start
+./run.sh queue-oneshot          # START_TIME까지 sleep 후 일제히 start
 ```
 ℹ️ 메모리 레퍼런스: VU당 ~5MB 메모리. c7g.xlarge(8GB) = ~1500 VU 한계, r7g.xlarge(32GB) = ~6000 VU.
 ℹ️ Grafana `load-test-command-center` 대시보드에서 `runner` 레이블로 분리 확인 가능.
@@ -331,7 +327,7 @@ cd ~/goti-load-test && git pull
 `run.sh` 안 쓰고 k6 직접 실행. Mimir push 없이 text summary만.
 
 ```bash
-k6 run scenarios/queue-suyeon.js \
+k6 run scenarios/queue-oneshot.js \
   -e BASE_URL=https://api.go-ti.shop \
   -e GAME_ID=a5cdd8b5-8d93-4751-a0dd-a02de19849ee \
   -e STADIUM_ID=4553f1c7-f5c1-468f-8ac9-f4883eb59ebc \
